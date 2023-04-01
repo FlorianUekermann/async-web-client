@@ -5,6 +5,28 @@ edition = "2021"
 description = "async web client helpers"
 license = "Apache-2.0 OR MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+http = "0.2.9"
+wasm-bindgen = "0.2.84"
+js-sys = "0.3.61"
+wasm-bindgen-futures = "0.4.34"
+futures = "0.3.28"
+log = "0.4.17"
+gloo-net = { version = "0.2.6", features = ["http"], default-features = false }
+thiserror = "1.0"
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+#  'Headers',
+#  'Request',
+#  'RequestInit',
+#  'RequestMode',
+#  'Response',
+#  'Window',
+#  'RequestCache',
+#  'RequestRedirect',
+#  'Headers',
+  'ReadableStream',
+  'ReadableStreamDefaultReader'
+]
