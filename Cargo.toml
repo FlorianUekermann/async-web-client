@@ -28,5 +28,10 @@ features = [
 #  'RequestRedirect',
 #  'Headers',
   'ReadableStream',
-  'ReadableStreamDefaultReader'
+  'ReadableStreamDefaultReader',
 ]
+
+[dev-dependencies]
+wasm-logger = "0.2.0"
+console_error_panic_hook = "0.1.7"
+log = "0.4.17"

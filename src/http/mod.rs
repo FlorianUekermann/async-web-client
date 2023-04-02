@@ -1,3 +1,11 @@
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+use futures::{AsyncRead, AsyncWrite};
+
 use self::error::HttpError;
 
 #[cfg(target_arch = "wasm32")]
@@ -31,6 +39,34 @@ impl RequestWrite {
     }
 }
 
+impl AsyncWrite for RequestWrite {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(cx)
+    }
+
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_close(cx)
+    }
+}
+
 pub struct ResponseRead {
     inner: ResponseReadInner,
+}
+
+impl AsyncRead for ResponseRead {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
 }

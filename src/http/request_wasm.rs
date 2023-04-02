@@ -67,12 +67,12 @@ impl RequestWrite {
     }
     fn headers(map: HeaderMap) -> Result<Headers, HttpError> {
         let headers = Headers::new();
-        let mut last_name = HeaderName::from_static("");
+        let mut last_name = None;
         for (name, value) in map {
-            let name = name.unwrap_or(last_name);
-            last_name = name.clone();
+            let name = name.unwrap_or(last_name.unwrap());
             if let Ok(value) = value.to_str() {
-                headers.append(name.as_str(), value)
+                headers.append(name.as_str(), value);
+                last_name = Some(name);
             } else {
                 return Err(HttpError::InvalidHeaderValue(value));
             }
