@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use http::{HeaderValue, Method};
 use thiserror::Error;
 
@@ -13,12 +11,14 @@ pub enum HttpError {
     NetworkError,
     #[error("redirect")]
     Redirect,
+    #[cfg(target_arch = "wasm32")]
     #[error("unknown gloo error: {0}")]
-    Other(Arc<gloo_net::Error>),
+    Other(std::sync::Arc<gloo_net::Error>),
 }
 
+#[cfg(target_arch = "wasm32")]
 impl From<gloo_net::Error> for HttpError {
     fn from(value: gloo_net::Error) -> Self {
-        Self::Other(Arc::new(value))
+        Self::Other(std::sync::Arc::new(value))
     }
 }

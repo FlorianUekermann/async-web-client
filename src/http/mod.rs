@@ -11,12 +11,20 @@ use self::error::HttpError;
 #[cfg(target_arch = "wasm32")]
 mod request_wasm;
 #[cfg(target_arch = "wasm32")]
-type RequestStreamInner = request_wasm::RequestWrite;
+type RequestWriteInner = request_wasm::RequestWrite;
+#[cfg(not(target_arch = "wasm32"))]
+mod response_native;
+#[cfg(not(target_arch = "wasm32"))]
+type RequestWriteInner = request_native::RequestWrite;
 
 #[cfg(target_arch = "wasm32")]
 mod response_wasm;
 #[cfg(target_arch = "wasm32")]
 type ResponseReadInner = response_wasm::ResponseRead;
+#[cfg(not(target_arch = "wasm32"))]
+mod request_native;
+#[cfg(not(target_arch = "wasm32"))]
+type ResponseReadInner = response_native::ResponseRead;
 
 mod error;
 
@@ -25,12 +33,12 @@ pub fn start_request<T>(request: &http::Request<T>) -> RequestWrite {
 }
 
 pub struct RequestWrite {
-    inner: RequestStreamInner,
+    inner: RequestWriteInner,
 }
 
 impl RequestWrite {
     pub fn start<T>(request: &http::Request<T>) -> Self {
-        let inner = RequestStreamInner::start(request);
+        let inner = RequestWriteInner::start(request);
         Self { inner }
     }
     pub async fn response(self) -> Result<(http::Response<()>, ResponseRead), HttpError> {

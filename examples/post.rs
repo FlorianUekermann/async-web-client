@@ -3,9 +3,14 @@ use futures::{AsyncReadExt, AsyncWriteExt};
 use http::Request;
 
 fn main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-    wasm_bindgen_futures::spawn_local(run())
+    #[cfg(target_arch = "wasm32")]
+    {
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
+        wasm_bindgen_futures::spawn_local(run());
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    smol::block_on(run());
 }
 
 async fn run() {
