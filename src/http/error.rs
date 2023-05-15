@@ -1,4 +1,4 @@
-use http::{HeaderValue, Method};
+use http::{uri::Scheme, HeaderValue, Method};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -11,6 +11,12 @@ pub enum HttpError {
     NetworkError,
     #[error("redirect")]
     Redirect,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[error("relative URI")]
+    RelativeUri,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[error("unexpected URI scheme: {0:?}")]
+    UnexpectedScheme(Scheme),
     #[cfg(target_arch = "wasm32")]
     #[error("unknown gloo error: {0}")]
     Other(std::sync::Arc<gloo_net::Error>),
