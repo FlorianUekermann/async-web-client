@@ -1,3 +1,5 @@
+use std::{io, sync::Arc};
+
 use http::{uri::Scheme, HeaderValue, Method};
 use thiserror::Error;
 
@@ -17,6 +19,12 @@ pub enum HttpError {
     #[cfg(not(target_arch = "wasm32"))]
     #[error("unexpected URI scheme: {0:?}")]
     UnexpectedScheme(Scheme),
+    #[cfg(not(target_arch = "wasm32"))]
+    #[error("connect error: {0:?}")]
+    ConnectError(Arc<io::Error>),
+    #[cfg(not(target_arch = "wasm32"))]
+    #[error("io error: {0:?}")]
+    IoError(Arc<io::Error>),
     #[cfg(target_arch = "wasm32")]
     #[error("unknown gloo error: {0}")]
     Other(std::sync::Arc<gloo_net::Error>),
