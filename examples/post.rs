@@ -10,7 +10,10 @@ fn main() {
         wasm_bindgen_futures::spawn_local(run());
     }
     #[cfg(not(target_arch = "wasm32"))]
-    smol::block_on(run());
+    {
+        env_logger::init();
+        smol::block_on(run());
+    }
 }
 
 async fn run() {

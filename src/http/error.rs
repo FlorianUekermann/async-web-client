@@ -9,6 +9,7 @@ pub enum HttpError {
     InvalidHeaderValue(HeaderValue),
     #[error("invalid method: {0}")]
     InvalidMethod(Method),
+    #[cfg(target_arch = "wasm32")]
     #[error("network error")]
     NetworkError,
     #[error("redirect")]
@@ -34,5 +35,20 @@ pub enum HttpError {
 impl From<gloo_net::Error> for HttpError {
     fn from(value: gloo_net::Error) -> Self {
         Self::Other(std::sync::Arc::new(value))
+    }
+}
+
+impl From<HttpError> for io::Error {
+    fn from(value: HttpError) -> Self {
+        let kind = match &value {
+            HttpError::InvalidHeaderValue(_) => io::ErrorKind::InvalidData,
+            HttpError::InvalidMethod(_) => io::ErrorKind::InvalidData,
+            HttpError::Redirect => io::ErrorKind::Unsupported,
+            HttpError::RelativeUri => io::ErrorKind::Unsupported,
+            HttpError::UnexpectedScheme(_) => io::ErrorKind::Unsupported,
+            HttpError::ConnectError(err) => err.kind(),
+            HttpError::IoError(err) => err.kind(),
+        };
+        io::Error::new(kind, value)
     }
 }

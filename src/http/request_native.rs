@@ -5,8 +5,9 @@ use std::task::{Context, Poll};
 
 use async_http_codec::internal::buffer_write::BufferWriteState;
 use async_http_codec::internal::io_future::IoFutureState;
-use async_http_codec::{BodyEncodeState, RequestHead};
+use async_http_codec::{BodyEncodeState, RequestHead, ResponseHead};
 use async_net::TcpStream;
+use futures::future::poll_fn;
 use futures::{ready, AsyncWrite, Future};
 use http::header::TRANSFER_ENCODING;
 use http::uri::Scheme;
@@ -54,9 +55,17 @@ impl RequestWrite {
             body_encode_state: Some(BodyEncodeState::new(None)),
         }
     }
-    pub async fn response(self) -> Result<(http::Response<()>, ResponseRead), HttpError> {
-        ResponseRead::new();
-        todo!()
+    pub async fn response(mut self) -> Result<(http::Response<()>, ResponseRead), HttpError> {
+        if let Err(_) = poll_fn(|cx| Pin::new(&mut self).poll_close(cx)).await {
+            return Err(self.error.unwrap().clone());
+        }
+        let t = self.transport.take().unwrap();
+        let (t, head) = match ResponseHead::decode(t).await {
+            Ok((t, head)) => (t, head),
+            Err(err) => return Err(HttpError::IoError(err.into())), // TODO: better errors upstream
+        };
+        _ = t;
+        Ok((head.into(), ResponseRead::new()))
     }
     fn error(err: HttpError) -> Self {
         Self {
@@ -94,22 +103,101 @@ impl RequestWrite {
         }
         Poll::Ready(Ok(()))
     }
+    fn already_closed() -> io::Error {
+        io::Error::new(io::ErrorKind::NotConnected, "already closed")
+    }
 }
 
 impl AsyncWrite for RequestWrite {
     fn poll_write(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        _buf: &[u8],
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        todo!()
+        if let Some(err) = self.error.clone() {
+            return Poll::Ready(Err(err.into()));
+        }
+        if let Err(err) = ready!(self.poll_before_body(cx)) {
+            return Poll::Ready(Err(err.into()));
+        }
+        let t = match self.transport.take() {
+            Some(t) => t,
+            None => return Poll::Ready(Err(Self::already_closed())),
+        };
+        let mut w = self.body_encode_state.take().unwrap().into_async_write(t);
+        let p = match Pin::new(&mut w).poll_write(cx, buf) {
+            Poll::Ready(Err(err)) => {
+                let err = HttpError::IoError(err.into());
+                *self = Self::error(err.clone());
+                Poll::Ready(Err(err.into()))
+            }
+            p => p,
+        };
+        let (t, s) = w.checkpoint();
+        self.body_encode_state = Some(s);
+        if self.error.is_none() {
+            self.transport = Some(t);
+        }
+        p
     }
 
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        todo!()
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        if let Some(err) = self.error.clone() {
+            return Poll::Ready(Err(err.into()));
+        }
+        if let Err(err) = ready!(self.poll_before_body(cx)) {
+            return Poll::Ready(Err(err.into()));
+        }
+        let t = match self.transport.take() {
+            Some(t) => t,
+            None => return Poll::Ready(Err(Self::already_closed())),
+        };
+        let mut w = self.body_encode_state.take().unwrap().into_async_write(t);
+        let p = match Pin::new(&mut w).poll_flush(cx) {
+            Poll::Ready(Err(err)) => {
+                let err = HttpError::IoError(err.into());
+                *self = Self::error(err.clone());
+                Poll::Ready(Err(err.into()))
+            }
+            p => p,
+        };
+        let (t, s) = w.checkpoint();
+        self.body_encode_state = Some(s);
+        if self.error.is_none() {
+            self.transport = Some(t);
+        }
+        p
     }
 
-    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        todo!()
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        if let Some(err) = self.error.clone() {
+            return Poll::Ready(Err(err.into()));
+        }
+        if let Err(err) = ready!(self.poll_before_body(cx)) {
+            return Poll::Ready(Err(err.into()));
+        }
+        let t = match self.transport.take() {
+            Some(t) => t,
+            None => return Poll::Ready(Err(Self::already_closed())),
+        };
+        let mut w = self.body_encode_state.take().unwrap().into_async_write(t);
+        let p = match Pin::new(&mut w).poll_close(cx) {
+            Poll::Ready(Ok(())) => {
+                drop(self.transport.take());
+                Poll::Ready(Ok(()))
+            }
+            Poll::Ready(Err(err)) => {
+                let err = HttpError::IoError(err.into());
+                *self = Self::error(err.clone());
+                Poll::Ready(Err(err.into()))
+            }
+            p => p,
+        };
+        let (t, s) = w.checkpoint();
+        self.body_encode_state = Some(s);
+        if self.error.is_none() {
+            self.transport = Some(t);
+        }
+        p
     }
 }
