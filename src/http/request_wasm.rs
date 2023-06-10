@@ -1,5 +1,6 @@
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::AsyncWrite;
@@ -46,7 +47,7 @@ impl RequestWrite {
             arr.copy_from(&body);
             req = req.body(Some(&arr));
         }
-        let resp = req.send().await?;
+        let resp = req.send().await.map_err(|err|HttpError::InvalidUrl(Arc::new(err)))?;
         match resp.type_() {
             ResponseType::Cors | ResponseType::Basic => {}
             ResponseType::Error => return Err(HttpError::NetworkError),

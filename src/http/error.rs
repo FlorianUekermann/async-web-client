@@ -27,6 +27,9 @@ pub enum HttpError {
     #[error("io error: {0:?}")]
     IoError(Arc<io::Error>),
     #[cfg(target_arch = "wasm32")]
+    #[error("invalid url error: {0}")]
+    InvalidUrl(Arc<gloo_net::Error>),
+    #[cfg(target_arch = "wasm32")]
     #[error("unknown gloo error: {0}")]
     Other(std::sync::Arc<gloo_net::Error>),
 }
