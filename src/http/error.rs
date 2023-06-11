@@ -21,6 +21,9 @@ pub enum HttpError {
     #[error("unexpected URI scheme: {0:?}")]
     UnexpectedScheme(Scheme),
     #[cfg(not(target_arch = "wasm32"))]
+    #[error("unsupported transfer encoding: {0:?}")]
+    UnsupportedTransferEncoding(HeaderValue),
+    #[cfg(not(target_arch = "wasm32"))]
     #[error("connect error: {0:?}")]
     ConnectError(Arc<io::Error>),
     #[cfg(not(target_arch = "wasm32"))]
@@ -44,13 +47,25 @@ impl From<gloo_net::Error> for HttpError {
 impl From<HttpError> for io::Error {
     fn from(value: HttpError) -> Self {
         let kind = match &value {
+            #[cfg(target_arch = "wasm32")]
+            HttpError::InvalidUrl(_) => io::ErrorKind::Unsupported,
+            #[cfg(target_arch = "wasm32")]
+            HttpError::NetworkError => io::ErrorKind::NotConnected,
             HttpError::InvalidHeaderValue(_) => io::ErrorKind::InvalidData,
             HttpError::InvalidMethod(_) => io::ErrorKind::InvalidData,
             HttpError::Redirect => io::ErrorKind::Unsupported,
+            #[cfg(target_arch = "wasm32")]
+            HttpError::Other(_) => io::ErrorKind::Other,
+            #[cfg(not(target_arch = "wasm32"))]
             HttpError::RelativeUri => io::ErrorKind::Unsupported,
+            #[cfg(not(target_arch = "wasm32"))]
             HttpError::UnexpectedScheme(_) => io::ErrorKind::Unsupported,
+            #[cfg(not(target_arch = "wasm32"))]
             HttpError::ConnectError(err) => err.kind(),
+            #[cfg(not(target_arch = "wasm32"))]
             HttpError::IoError(err) => err.kind(),
+            #[cfg(not(target_arch = "wasm32"))]
+            HttpError::UnsupportedTransferEncoding(_) => io::ErrorKind::Unsupported,
         };
         io::Error::new(kind, value)
     }

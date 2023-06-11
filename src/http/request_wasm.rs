@@ -7,6 +7,7 @@ use futures::AsyncWrite;
 use gloo_net::http::{Headers, RequestCache, RequestRedirect, ResponseType};
 use http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use js_sys::Uint8Array;
+use web_sys::RequestMode;
 
 use super::error::HttpError;
 use super::response_wasm::ResponseRead;
@@ -38,16 +39,20 @@ impl RequestWrite {
             body,
         } = self;
         let mut req = gloo_net::http::Request::new(&url.to_string())
+            .mode(RequestMode::Cors)
             .method(Self::method(method)?)
             .cache(RequestCache::NoStore)
-            .redirect(RequestRedirect::Manual)
+            .redirect(RequestRedirect::Follow)
             .headers(Self::headers(headers)?);
         if body.len() > 0 {
             let arr = Uint8Array::new_with_length(body.len().try_into().unwrap());
             arr.copy_from(&body);
             req = req.body(Some(&arr));
         }
-        let resp = req.send().await.map_err(|err|HttpError::InvalidUrl(Arc::new(err)))?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|err| HttpError::InvalidUrl(Arc::new(err)))?;
         match resp.type_() {
             ResponseType::Cors | ResponseType::Basic => {}
             ResponseType::Error => return Err(HttpError::NetworkError),
@@ -57,7 +62,7 @@ impl RequestWrite {
 
         let mut response = http::Response::new(());
         *response.status_mut() = StatusCode::from_u16(resp.status()).unwrap();
-        *response.version_mut() = http::Version::HTTP_09;
+        *response.version_mut() = http::Version::HTTP_11;
         let headers = response.headers_mut();
         for (name, value) in resp.headers().entries() {
             let name = HeaderName::from_bytes(name.as_bytes()).unwrap();
@@ -70,7 +75,10 @@ impl RequestWrite {
         let headers = Headers::new();
         let mut last_name = None;
         for (name, value) in map {
-            let name = name.unwrap_or(last_name.unwrap());
+            let name = match name {
+                Some(name) => name,
+                None => last_name.take().unwrap(),
+            };
             if let Ok(value) = value.to_str() {
                 headers.append(name.as_str(), value);
                 last_name = Some(name);

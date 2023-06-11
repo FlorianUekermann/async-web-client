@@ -64,8 +64,8 @@ impl RequestWrite {
             Ok((t, head)) => (t, head),
             Err(err) => return Err(HttpError::IoError(err.into())), // TODO: better errors upstream
         };
-        _ = t;
-        Ok((head.into(), ResponseRead::new()))
+        let resp = ResponseRead::new(t, &head)?;
+        Ok((head.into(), resp))
     }
     fn error(err: HttpError) -> Self {
         Self {
