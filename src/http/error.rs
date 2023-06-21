@@ -15,8 +15,8 @@ pub enum HttpError {
     #[error("redirect")]
     Redirect,
     #[cfg(not(target_arch = "wasm32"))]
-    #[error("relative URI")]
-    RelativeUri,
+    #[error("missing host in URI or host header")]
+    MissingHost,
     #[cfg(not(target_arch = "wasm32"))]
     #[error("unexpected URI scheme: {0:?}")]
     UnexpectedScheme(Scheme),
@@ -57,7 +57,7 @@ impl From<HttpError> for io::Error {
             #[cfg(target_arch = "wasm32")]
             HttpError::Other(_) => io::ErrorKind::Other,
             #[cfg(not(target_arch = "wasm32"))]
-            HttpError::RelativeUri => io::ErrorKind::Unsupported,
+            HttpError::MissingHost => io::ErrorKind::Unsupported,
             #[cfg(not(target_arch = "wasm32"))]
             HttpError::UnexpectedScheme(_) => io::ErrorKind::Unsupported,
             #[cfg(not(target_arch = "wasm32"))]

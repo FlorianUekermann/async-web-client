@@ -28,11 +28,7 @@ impl ResponseRead {
 }
 
 impl AsyncRead for ResponseRead {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         loop {
             if let Some(chunk) = self.chunk.as_mut() {
                 let start = chunk.0;
@@ -50,18 +46,12 @@ impl AsyncRead for ResponseRead {
                 self.future.take();
                 match res {
                     Ok(ok) => {
-                        let done: bool = Reflect::get(&ok, &JsValue::from_str("done"))
-                            .unwrap()
-                            .as_bool()
-                            .unwrap();
+                        let done: bool = Reflect::get(&ok, &JsValue::from_str("done")).unwrap().as_bool().unwrap();
                         if done {
                             self.body = None;
                             return Poll::Ready(Ok(0));
                         }
-                        let value: Uint8Array = Reflect::get(&ok, &JsValue::from_str("value"))
-                            .unwrap()
-                            .dyn_into()
-                            .unwrap();
+                        let value: Uint8Array = Reflect::get(&ok, &JsValue::from_str("value")).unwrap().dyn_into().unwrap();
                         self.chunk = Some((0, value.to_vec()));
                     }
                     Err(err) => todo!("{:?}", err),

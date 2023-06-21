@@ -32,12 +32,7 @@ impl RequestWrite {
         }
     }
     pub async fn response(self) -> Result<(http::Response<()>, ResponseRead), HttpError> {
-        let RequestWrite {
-            url,
-            method,
-            headers,
-            body,
-        } = self;
+        let RequestWrite { url, method, headers, body } = self;
         let mut req = gloo_net::http::Request::new(&url.to_string())
             .mode(RequestMode::Cors)
             .method(Self::method(method)?)
@@ -49,10 +44,7 @@ impl RequestWrite {
             arr.copy_from(&body);
             req = req.body(Some(&arr));
         }
-        let resp = req
-            .send()
-            .await
-            .map_err(|err| HttpError::InvalidUrl(Arc::new(err)))?;
+        let resp = req.send().await.map_err(|err| HttpError::InvalidUrl(Arc::new(err)))?;
         match resp.type_() {
             ResponseType::Cors | ResponseType::Basic => {}
             ResponseType::Error => return Err(HttpError::NetworkError),
@@ -107,11 +99,7 @@ impl RequestWrite {
 }
 
 impl AsyncWrite for RequestWrite {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         self.body.extend_from_slice(buf);
         Poll::Ready(Ok(buf.len()))
     }

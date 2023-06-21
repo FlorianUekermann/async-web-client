@@ -20,9 +20,8 @@ pub struct ResponseRead {
 impl ResponseRead {
     pub(crate) fn new(transport: TcpStream, head: &ResponseHead) -> Result<Self, HttpError> {
         // TODO: Return HeaderValue in upstream error
-        let state = BodyDecodeState::from_headers(head.headers()).map_err(|_err| {
-            HttpError::UnsupportedTransferEncoding(HeaderValue::from_static("TODO"))
-        })?;
+        let state =
+            BodyDecodeState::from_headers(head.headers()).map_err(|_err| HttpError::UnsupportedTransferEncoding(HeaderValue::from_static("TODO")))?;
         Ok(Self {
             state,
             transport: Some(transport),
@@ -32,11 +31,7 @@ impl ResponseRead {
 }
 
 impl AsyncRead for ResponseRead {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         if let Some(err) = &self.error {
             return Poll::Ready(Err(err.clone().into()));
         }

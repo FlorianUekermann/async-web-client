@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{AsyncRead, AsyncWrite};
+use futures::{future::FusedFuture, ready, AsyncRead, AsyncWrite, Future};
 
 use self::error::HttpError;
 
@@ -26,10 +26,38 @@ mod request_native;
 #[cfg(not(target_arch = "wasm32"))]
 type ResponseReadInner = response_native::ResponseRead;
 
+mod common;
 mod error;
 
-pub fn start_request<T>(request: &http::Request<T>) -> RequestWrite {
-    RequestWrite::start(&request)
+pub struct RequestSend<'a> {
+    inner: request_native::RequestSend<'a>,
+}
+
+impl RequestSend<'_> {
+    pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
+        #[cfg(target_arch = "wasm32")]
+        todo!();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let inner = request_native::RequestSend::new(request);
+            RequestSend { inner }
+        }
+    }
+}
+
+impl Future for RequestSend<'_> {
+    type Output = Result<http::Response<ResponseRead>, HttpError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let response = ready!(self.inner.poll(cx))?;
+        Ok(response.map(|inner| ResponseRead { inner })).into()
+    }
+}
+
+impl FusedFuture for RequestSend<'_> {
+    fn is_terminated(&self) -> bool {
+        self.inner.is_terminated()
+    }
 }
 
 pub struct RequestWrite {
@@ -48,11 +76,7 @@ impl RequestWrite {
 }
 
 impl AsyncWrite for RequestWrite {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         Pin::new(&mut self.inner).poll_write(cx, buf)
     }
 
@@ -70,11 +94,7 @@ pub struct ResponseRead {
 }
 
 impl AsyncRead for ResponseRead {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         Pin::new(&mut self.inner).poll_read(cx, buf)
     }
 }
