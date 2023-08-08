@@ -3,6 +3,8 @@ use std::{io, sync::Arc};
 use http::{uri::Scheme, HeaderValue, Method};
 use thiserror::Error;
 
+use crate::TransportError;
+
 #[derive(Error, Debug, Clone)]
 pub enum HttpError {
     #[error("invalid header value: {0:?}")]
@@ -25,7 +27,7 @@ pub enum HttpError {
     UnsupportedTransferEncoding(HeaderValue),
     #[cfg(not(target_arch = "wasm32"))]
     #[error("connect error: {0:?}")]
-    ConnectError(Arc<io::Error>),
+    ConnectError(TransportError),
     #[cfg(not(target_arch = "wasm32"))]
     #[error("io error: {0:?}")]
     IoError(Arc<io::Error>),
@@ -61,7 +63,11 @@ impl From<HttpError> for io::Error {
             #[cfg(not(target_arch = "wasm32"))]
             HttpError::UnexpectedScheme(_) => io::ErrorKind::Unsupported,
             #[cfg(not(target_arch = "wasm32"))]
-            HttpError::ConnectError(err) => err.kind(),
+            HttpError::ConnectError(err) => match err {
+                TransportError::InvalidDnsName(_) => io::ErrorKind::InvalidData,
+                TransportError::TcpConnect(err) => err.kind(),
+                TransportError::TlsConnect(err) => err.kind(),
+            },
             #[cfg(not(target_arch = "wasm32"))]
             HttpError::IoError(err) => err.kind(),
             #[cfg(not(target_arch = "wasm32"))]

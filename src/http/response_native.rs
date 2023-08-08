@@ -5,20 +5,21 @@ use std::{
 };
 
 use async_http_codec::{BodyDecodeState, ResponseHead};
-use async_net::TcpStream;
 use futures::AsyncRead;
 use http::HeaderValue;
+
+use crate::Transport;
 
 use super::error::HttpError;
 
 pub struct ResponseRead {
     state: BodyDecodeState,
-    transport: Option<TcpStream>,
+    transport: Option<Transport>,
     error: Option<HttpError>,
 }
 
 impl ResponseRead {
-    pub(crate) fn new(transport: TcpStream, head: &ResponseHead) -> Result<Self, HttpError> {
+    pub(crate) fn new(transport: Transport, head: &ResponseHead) -> Result<Self, HttpError> {
         // TODO: Return HeaderValue in upstream error
         let state =
             BodyDecodeState::from_headers(head.headers()).map_err(|_err| HttpError::UnsupportedTransferEncoding(HeaderValue::from_static("TODO")))?;
@@ -27,6 +28,13 @@ impl ResponseRead {
             transport: Some(transport),
             error: None,
         })
+    }
+    pub(crate) fn into_inner(self) -> Result<(BodyDecodeState, Transport), HttpError> {
+        let ResponseRead { state, transport, error } = self;
+        if let Some(err) = error {
+            return Err(err);
+        }
+        Ok((state, transport.unwrap()))
     }
 }
 

@@ -1,4 +1,4 @@
-use async_web_client::http::RequestSend;
+use async_web_client::RequestSend;
 use futures::{AsyncReadExt, AsyncWriteExt};
 use http::{header::HOST, Request};
 
@@ -19,24 +19,20 @@ fn main() {
 async fn run() {
     if let Err(err) = post().await {
         log::error!("{:?}", err);
+    } else {
+        log::info!("no errors");
     }
 }
 
 async fn post() -> Result<(), Box<dyn std::error::Error>> {
-    //    let request = Request::post("/anything").header(HOST, "httpbin.org:80").body(())?;
     let request = Request::post("http://postman-echo.com/post").body(())?;
-    let request = Request::post("http://httpbin.org/anything").body(())?;
     let request = request.map(|_| &b"hello post"[..]);
 
     let response = RequestSend::new(&request).await?;
     let (parts, mut body_reader) = response.into_parts();
-    dbg!();
     log::info!("response: {parts:?}");
-    dbg!();
     let mut body = String::new();
-    dbg!();
     body_reader.read_to_string(&mut body).await?;
-    dbg!();
     log::info!("response body: {body}");
     Ok(())
 }
