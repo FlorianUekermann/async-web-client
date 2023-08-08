@@ -9,7 +9,7 @@ pub enum WsConnectError {
     #[error("invalid websocket upgrade request")]
     InvalidUpgradeRequest,
     #[error("invalid websocket upgrade response")]
-    InvalidUpgradeResponse(Arc<http::Response<Box<dyn std::fmt::Debug>>>),
+    InvalidUpgradeResponse(Arc<http::Response<Box<dyn std::fmt::Debug + Send>>>),
     #[error("invalid uri: {0:?}")]
     InvalidUrl(Arc<InvalidUri>),
     #[error("websocket upgrade request error: {0:?}")]

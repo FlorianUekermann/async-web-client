@@ -1,6 +1,6 @@
 [package]
 name = "async-web-client"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "async web client helpers"
 license = "Apache-2.0 OR MIT"
@@ -25,6 +25,7 @@ async-net = "1.7.0"
 futures-rustls = "0.24.0"
 async-ws = "0.3.4"
 webpki-roots = "0.25.1"
+rustls = "0.21.6"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-logger = "0.2.0"

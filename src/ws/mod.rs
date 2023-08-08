@@ -46,7 +46,7 @@ impl WsConnection {
             let (head, body_reader) = response.into_parts();
             let mut buf = Vec::new();
             let result = body_reader.take(1 << 14).read_to_end(&mut buf).await;
-            let result: Box<dyn std::fmt::Debug> = match String::from_utf8(buf) {
+            let result: Box<dyn std::fmt::Debug + Send> = match String::from_utf8(buf) {
                 Ok(str) => Box::new(result.map(move |_| str)),
                 Err(err) => Box::new(result.map(move |_| err.into_bytes())),
             };
