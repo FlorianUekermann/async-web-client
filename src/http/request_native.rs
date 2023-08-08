@@ -33,7 +33,7 @@ pub(crate) enum RequestSend<'a> {
         method: Method,
         uri: &'a Uri,
         headers: &'a HeaderMap,
-        transport: Pin<Box<dyn Future<Output = Result<Transport, TransportError>>>>,
+        transport: Pin<Box<dyn Future<Output = Result<Transport, TransportError>> + Send>>,
     },
     SendingHead {
         body: &'a [u8],
