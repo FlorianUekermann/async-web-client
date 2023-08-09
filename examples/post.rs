@@ -1,6 +1,6 @@
 use async_web_client::RequestSend;
-use futures::{AsyncReadExt, AsyncWriteExt};
-use http::{header::HOST, Request};
+use futures::AsyncReadExt;
+use http::Request;
 
 fn main() {
     #[cfg(target_arch = "wasm32")]

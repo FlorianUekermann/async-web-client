@@ -17,10 +17,11 @@ mod error;
 
 use error::*;
 
-type WsMessageKind = async_ws::message::WsMessageKind;
-type WsSend = async_ws::connection::WsSend<Transport>;
-type WsConnectionError = async_ws::connection::WsConnectionError;
-type WsMessageReader = async_ws::connection::WsMessageReader<Transport>;
+pub type WsMessageKind = async_ws::message::WsMessageKind;
+pub type WsSend = async_ws::connection::WsSend<Transport>;
+pub type WsConnectionError = async_ws::connection::WsConnectionError;
+pub type WsMessageReader = async_ws::connection::WsMessageReader<Transport>;
+pub type WsMessageWriter = async_ws::connection::WsMessageWriter<Transport>;
 
 pub struct WsConnection {
     inner: async_ws::connection::WsConnection<Transport>,
