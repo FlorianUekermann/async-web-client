@@ -24,7 +24,7 @@ pub enum Transport {
 }
 
 impl Transport {
-    async fn connect(tls: bool, host: &str, port: u16) -> Result<Self, TransportError> {
+    async fn connect(tls: Option<Arc<ClientConfig>>, host: &str, port: u16) -> Result<Self, TransportError> {
         let server = ServerName::try_from(host).map_err(|err| TransportError::InvalidDnsName(Arc::new(err)))?;
         let tcp = match &server {
             ServerName::DnsName(name) => TcpStream::connect((name.as_ref(), port)).await,
@@ -33,10 +33,9 @@ impl Transport {
         }
         .map_err(|err| TransportError::TcpConnect(Arc::new(err)))?;
         let transport = match tls {
-            false => Transport::Tcp(tcp),
-            true => {
-                let tls = TLS_CONNECTOR
-                    .clone()
+            None => Transport::Tcp(tcp),
+            Some(client_config) => {
+                let tls = TlsConnector::from(client_config)
                     .connect(server, tcp)
                     .await
                     .map_err(|err| TransportError::TlsConnect(Arc::new(err)))?;
@@ -94,7 +93,7 @@ pub enum TransportError {
 }
 
 lazy_static::lazy_static! {
-    static ref TLS_CONNECTOR: TlsConnector = {
+    pub (crate) static ref DEFAULT_CLIENT_CONFIG: Arc<ClientConfig> = {
         let roots = webpki_roots::TLS_SERVER_ROOTS
         .iter()
         .map(|t| {OwnedTrustAnchor::from_subject_spki_name_constraints(t.subject,t.spki,t.name_constraints)});
@@ -104,6 +103,6 @@ lazy_static::lazy_static! {
             .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        TlsConnector::from(Arc::new(config))
+        Arc::new(config)
     };
 }

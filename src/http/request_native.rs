@@ -14,8 +14,9 @@ use futures::{AsyncWrite, Future};
 
 use http::uri::Scheme;
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
+use rustls::ClientConfig;
 
-use crate::{Transport, TransportError};
+use crate::{Transport, TransportError, DEFAULT_CLIENT_CONFIG};
 
 use super::common::extract_origin;
 use super::error::HttpError;
@@ -27,6 +28,7 @@ pub(crate) enum RequestSend<'a> {
         method: Method,
         uri: &'a Uri,
         headers: &'a HeaderMap,
+        client_config: Arc<ClientConfig>,
     },
     PendingConnect {
         body: &'a [u8],
@@ -58,17 +60,32 @@ pub(crate) enum RequestSend<'a> {
 
 impl RequestSend<'_> {
     pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
+        Self::new_with_client_config(request, DEFAULT_CLIENT_CONFIG.clone())
+    }
+    pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: Arc<ClientConfig>) -> RequestSend<'_> {
         let body = request.body().as_ref();
         let uri = request.uri();
         let headers = request.headers();
         let method = request.method().clone();
-        RequestSend::Start { method, body, uri, headers }
+        RequestSend::Start {
+            method,
+            body,
+            uri,
+            headers,
+            client_config,
+        }
     }
     pub fn poll(&mut self, cx: &mut Context) -> Poll<Result<http::Response<ResponseRead>, HttpError>> {
         loop {
             let s = replace(self, RequestSend::Finished);
             match s {
-                RequestSend::Start { method, body, uri, headers } => {
+                RequestSend::Start {
+                    method,
+                    body,
+                    uri,
+                    headers,
+                    client_config,
+                } => {
                     let (scheme, host, port) = extract_origin(uri, headers)?;
                     let https = match scheme {
                         _ if scheme == Some(Scheme::HTTP) => false,
@@ -76,9 +93,10 @@ impl RequestSend<'_> {
                         None => true,
                         Some(scheme) => return Poll::Ready(Err(HttpError::UnexpectedScheme(scheme))),
                     };
+                    let https = https.then_some(client_config);
                     let port = port.unwrap_or(match https {
-                        true => 443,
-                        false => 80,
+                        Some(_) => 443,
+                        None => 80,
                     });
                     *self = RequestSend::PendingConnect {
                         body,
