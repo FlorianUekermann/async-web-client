@@ -4,6 +4,7 @@ version = "0.2.6"
 edition = "2021"
 description = "async web client helpers"
 license = "Apache-2.0 OR MIT"
+repository = "https://github.com/FlorianUekermann/async-web-client"
 
 [dependencies]
 http = "0.2.9"
