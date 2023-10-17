@@ -12,7 +12,7 @@ use async_http_codec::{BodyEncodeState, RequestHead, ResponseHead};
 
 use futures::{AsyncWrite, Future};
 
-use http::uri::Scheme;
+use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
 use rustls::ClientConfig;
 
@@ -115,7 +115,8 @@ impl RequestSend<'_> {
                 } => match transport.as_mut().poll(cx) {
                     Poll::Ready(Ok(transport)) => {
                         let (_scheme, host, port) = extract_origin(uri, headers)?;
-                        let mut head = RequestHead::new(method, Cow::Borrowed(uri), Version::HTTP_11, Cow::Borrowed(headers));
+                        let uri = uri.path_and_query().cloned().unwrap_or_else(|| PathAndQuery::from_static("/")).into();
+                        let mut head = RequestHead::new(method, Cow::Owned(uri), Version::HTTP_11, Cow::Borrowed(headers));
                         if head.headers().get(http::header::HOST).is_none() {
                             let host = match port {
                                 Some(port) => HeaderValue::from_str(&format!("{}:{}", host, port)).unwrap(),
