@@ -29,6 +29,7 @@ impl ResponseRead {
             error: None,
         })
     }
+    #[cfg(feature = "websocket")]
     pub(crate) fn into_inner(self) -> Result<(BodyDecodeState, Transport), HttpError> {
         let ResponseRead { state, transport, error } = self;
         if let Some(err) = error {

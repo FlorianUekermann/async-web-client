@@ -4,10 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use async_http_codec::BodyDecodeState;
 use futures::{future::FusedFuture, ready, AsyncRead, Future};
-
-use crate::Transport;
 
 pub use self::error::HttpError;
 
@@ -68,8 +65,9 @@ pub struct ResponseRead {
     inner: ResponseReadInner,
 }
 
+#[cfg(feature = "websocket")]
 impl ResponseRead {
-    pub(crate) fn into_inner(self) -> Result<(BodyDecodeState, Transport), HttpError> {
+    pub(crate) fn into_inner(self) -> Result<(async_http_codec::BodyDecodeState, crate::Transport), HttpError> {
         self.inner.into_inner()
     }
 }
