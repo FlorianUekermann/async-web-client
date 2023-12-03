@@ -1,13 +1,13 @@
 [package]
 name = "async-web-client"
-version = "0.2.7"
+version = "0.3.0"
 edition = "2021"
 description = "async web client helpers"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/FlorianUekermann/async-web-client"
 
 [dependencies]
-http = "0.2.9"
+http = "1.0.0"
 futures = "0.3.28"
 log = "0.4.17"
 thiserror = "1.0"
@@ -21,10 +21,10 @@ js-sys = "0.3.61"
 wasm-bindgen-futures = "0.4.34"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-async-http-codec = "0.5.8"
+async-http-codec = "0.8.0"
 async-net = "1.7.0"
 futures-rustls = "0.24.0"
-async-ws = "0.3.4"
+async-ws = "0.4.0"
 webpki-roots = "0.25.1"
 rustls = "0.21.6"
 
