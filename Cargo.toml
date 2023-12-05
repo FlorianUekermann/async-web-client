@@ -1,6 +1,6 @@
 [package]
 name = "async-web-client"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "async web client helpers"
 license = "Apache-2.0 OR MIT"
@@ -12,6 +12,7 @@ futures = "0.3.28"
 log = "0.4.17"
 thiserror = "1.0"
 lazy_static = "1.4.0"
+rustls-pki-types = { version = "1.0.0", features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version="0.3.4", features=['ReadableStream', 'ReadableStreamDefaultReader'] }
@@ -23,10 +24,10 @@ wasm-bindgen-futures = "0.4.34"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 async-http-codec = "0.8.0"
 async-net = "1.7.0"
-futures-rustls = "0.24.0"
+futures-rustls = "0.25.0"
 async-ws = "0.4.0"
 webpki-roots = "0.25.1"
-rustls = "0.21.6"
+rustls = "0.22"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-logger = "0.2.0"

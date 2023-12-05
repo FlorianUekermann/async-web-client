@@ -3,6 +3,7 @@ mod ws;
 
 use std::{
     io,
+    net::IpAddr,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -13,9 +14,10 @@ use async_net::TcpStream;
 use futures::{AsyncRead, AsyncWrite};
 use futures_rustls::{
     client::TlsStream,
-    rustls::{client::InvalidDnsNameError, ClientConfig, OwnedTrustAnchor, RootCertStore, ServerName},
+    rustls::{ClientConfig, RootCertStore},
     TlsConnector,
 };
+use rustls_pki_types::{InvalidDnsNameError, ServerName, TrustAnchor};
 pub use ws::*;
 
 pub enum Transport {
@@ -25,10 +27,12 @@ pub enum Transport {
 
 impl Transport {
     async fn connect(tls: Option<Arc<ClientConfig>>, host: &str, port: u16) -> Result<Self, TransportError> {
-        let server = ServerName::try_from(host).map_err(|err| TransportError::InvalidDnsName(Arc::new(err)))?;
+        let server = ServerName::try_from(host)
+            .map_err(|err| TransportError::InvalidDnsName(Arc::new(err)))?
+            .to_owned();
         let tcp = match &server {
             ServerName::DnsName(name) => TcpStream::connect((name.as_ref(), port)).await,
-            ServerName::IpAddress(ip) => TcpStream::connect((ip.clone(), port)).await,
+            ServerName::IpAddress(ip) => TcpStream::connect((IpAddr::from(*ip), port)).await,
             _ => unreachable!(),
         }
         .map_err(|err| TransportError::TcpConnect(Arc::new(err)))?;
@@ -96,11 +100,10 @@ lazy_static::lazy_static! {
     pub (crate) static ref DEFAULT_CLIENT_CONFIG: Arc<ClientConfig> = {
         let roots = webpki_roots::TLS_SERVER_ROOTS
         .iter()
-        .map(|t| {OwnedTrustAnchor::from_subject_spki_name_constraints(t.subject,t.spki,t.name_constraints)});
+        .map(|t| {TrustAnchor{subject: t.subject.into(), subject_public_key_info: t.spki.into() , name_constraints: t.name_constraints.map(Into::into)}});
         let mut root_store = RootCertStore::empty();
-        root_store.add_trust_anchors(roots);
+        root_store.extend(roots);
         let config = ClientConfig::builder()
-            .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
         Arc::new(config)
