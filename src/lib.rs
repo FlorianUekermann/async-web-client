@@ -1,4 +1,5 @@
 mod http;
+#[cfg(feature = "websocket")]
 mod ws;
 
 use std::{
@@ -18,6 +19,7 @@ use futures_rustls::{
     TlsConnector,
 };
 use rustls_pki_types::{InvalidDnsNameError, ServerName, TrustAnchor};
+#[cfg(feature = "websocket")]
 pub use ws::*;
 
 pub enum Transport {
