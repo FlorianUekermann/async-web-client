@@ -102,7 +102,14 @@ lazy_static::lazy_static! {
     pub (crate) static ref DEFAULT_CLIENT_CONFIG: Arc<ClientConfig> = {
         let roots = webpki_roots::TLS_SERVER_ROOTS
         .iter()
-        .map(|t| {TrustAnchor{subject: t.subject.into(), subject_public_key_info: t.spki.into() , name_constraints: t.name_constraints.map(Into::into)}});
+        .map(|t| {
+            let t = t.to_owned();
+            TrustAnchor {
+                subject: t.subject.into(),
+                subject_public_key_info: t.subject_public_key_info.into(),
+                name_constraints: t.name_constraints.map(Into::into),
+            }
+        });
         let mut root_store = RootCertStore::empty();
         root_store.extend(roots);
         let config = ClientConfig::builder()
