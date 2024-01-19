@@ -30,6 +30,7 @@ pub struct RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
+    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
         #[cfg(target_arch = "wasm32")]
         todo!();

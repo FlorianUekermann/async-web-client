@@ -15,7 +15,7 @@ use futures::{AsyncWrite, Future};
 use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
 
-use crate::{ClientConfig, Transport, TransportError, DEFAULT_CLIENT_CONFIG};
+use crate::{ClientConfig, Transport, TransportError};
 
 use super::common::extract_origin;
 use super::error::HttpError;
@@ -58,8 +58,9 @@ pub(crate) enum RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
+    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
-        Self::new_with_client_config(request, DEFAULT_CLIENT_CONFIG.clone())
+        Self::new_with_client_config(request, crate::DEFAULT_CLIENT_CONFIG.clone())
     }
     pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: Arc<ClientConfig>) -> RequestSend<'_> {
         let body = request.body().as_ref();

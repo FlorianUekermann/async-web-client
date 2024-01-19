@@ -13,12 +13,8 @@ use std::{
 pub use crate::http::*;
 use async_net::TcpStream;
 use futures::{AsyncRead, AsyncWrite};
-use futures_rustls::{
-    client::TlsStream,
-    rustls::{ClientConfig, RootCertStore},
-    TlsConnector,
-};
-use rustls_pki_types::{InvalidDnsNameError, ServerName, TrustAnchor};
+use futures_rustls::{client::TlsStream, rustls::ClientConfig, TlsConnector};
+use rustls_pki_types::{InvalidDnsNameError, ServerName};
 #[cfg(feature = "websocket")]
 pub use ws::*;
 
@@ -98,21 +94,29 @@ pub enum TransportError {
     TlsConnect(Arc<io::Error>),
 }
 
+#[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
 lazy_static::lazy_static! {
     pub (crate) static ref DEFAULT_CLIENT_CONFIG: Arc<ClientConfig> = {
         let roots = webpki_roots::TLS_SERVER_ROOTS
         .iter()
         .map(|t| {
             let t = t.to_owned();
-            TrustAnchor {
+            rustls_pki_types::TrustAnchor {
                 subject: t.subject.into(),
                 subject_public_key_info: t.subject_public_key_info.into(),
                 name_constraints: t.name_constraints.map(Into::into),
             }
         });
-        let mut root_store = RootCertStore::empty();
+        let mut root_store = futures_rustls::rustls::RootCertStore::empty();
         root_store.extend(roots);
-        let config = ClientConfig::builder()
+        #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
+        let provider = futures_rustls::rustls::crypto::ring::default_provider();
+        #[cfg(feature = "aws-lc-rs")]
+        let provider = futures_rustls::rustls::crypto::aws_lc_rs::default_provider();
+
+        let config = ClientConfig::builder_with_provider(Arc::new(provider))
+            .with_safe_default_protocol_versions()
+            .expect("could not enable default TLS versions")
             .with_root_certificates(root_store)
             .with_no_client_auth();
         Arc::new(config)
