@@ -14,9 +14,8 @@ use futures::{AsyncWrite, Future};
 
 use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
-use rustls::ClientConfig;
 
-use crate::{Transport, TransportError, DEFAULT_CLIENT_CONFIG};
+use crate::{ClientConfig, Transport, TransportError, DEFAULT_CLIENT_CONFIG};
 
 use super::common::extract_origin;
 use super::error::HttpError;
