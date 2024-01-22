@@ -1,29 +1,18 @@
+use futures::{future::FusedFuture, ready, AsyncRead, Future};
 use std::{
     io,
     pin::Pin,
     task::{Context, Poll},
 };
 
-use futures::{future::FusedFuture, ready, AsyncRead, Future};
-
 pub use self::error::HttpError;
-
-#[cfg(target_arch = "wasm32")]
-mod request_wasm;
-#[cfg(not(target_arch = "wasm32"))]
-mod response_native;
-
-#[cfg(target_arch = "wasm32")]
-mod response_wasm;
-#[cfg(target_arch = "wasm32")]
-type ResponseReadInner = response_wasm::ResponseRead;
-#[cfg(not(target_arch = "wasm32"))]
-mod request_native;
-#[cfg(not(target_arch = "wasm32"))]
-type ResponseReadInner = response_native::ResponseRead;
 
 mod common;
 mod error;
+mod request_native;
+mod response_native;
+
+type ResponseReadInner = response_native::ResponseRead;
 
 pub struct RequestSend<'a> {
     inner: request_native::RequestSend<'a>,
@@ -32,15 +21,9 @@ pub struct RequestSend<'a> {
 impl RequestSend<'_> {
     #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
-        #[cfg(target_arch = "wasm32")]
-        todo!();
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let inner = request_native::RequestSend::new(request);
-            RequestSend { inner }
-        }
+        let inner = request_native::RequestSend::new(request);
+        RequestSend { inner }
     }
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: std::sync::Arc<crate::ClientConfig>) -> RequestSend<'_> {
         let inner = request_native::RequestSend::new_with_client_config(request, client_config);
         RequestSend { inner }

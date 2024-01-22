@@ -2,17 +2,8 @@ use async_web_client::WsConnection;
 use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 
 fn main() {
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-        wasm_bindgen_futures::spawn_local(run());
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
-        smol::block_on(run());
-    }
+    env_logger::init();
+    smol::block_on(run());
 }
 
 async fn run() {
