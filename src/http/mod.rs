@@ -30,6 +30,7 @@ pub struct RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
+    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
         #[cfg(target_arch = "wasm32")]
         todo!();
@@ -40,7 +41,7 @@ impl RequestSend<'_> {
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: std::sync::Arc<rustls::ClientConfig>) -> RequestSend<'_> {
+    pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: std::sync::Arc<crate::ClientConfig>) -> RequestSend<'_> {
         let inner = request_native::RequestSend::new_with_client_config(request, client_config);
         RequestSend { inner }
     }
