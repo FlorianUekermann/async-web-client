@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::io::ErrorKind::UnexpectedEof;
 
 use std::mem::replace;
 use std::pin::Pin;
@@ -10,7 +11,7 @@ use async_http_codec::internal::buffer_write::BufferWriteState;
 use async_http_codec::internal::io_future::{IoFutureState, IoFutureWithOutputState};
 use async_http_codec::{BodyEncodeState, RequestHead, ResponseHead};
 
-use futures::{AsyncWrite, Future};
+use futures::{AsyncRead, AsyncWrite, Future};
 
 use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
@@ -19,31 +20,31 @@ use crate::{ClientConfig, Transport, TransportError};
 
 use super::common::extract_origin;
 use super::error::HttpError;
-use super::response_native::ResponseRead;
+use super::response_native::ResponseBodyInner;
 
 pub(crate) enum RequestSend<'a> {
     Start {
-        body: &'a [u8],
+        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         method: Method,
         uri: &'a Uri,
         headers: &'a HeaderMap,
         client_config: Arc<ClientConfig>,
     },
     PendingConnect {
-        body: &'a [u8],
+        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         method: Method,
         uri: &'a Uri,
         headers: &'a HeaderMap,
         transport: Pin<Box<dyn Future<Output = Result<Transport, TransportError>> + Send>>,
     },
     SendingHead {
-        body: &'a [u8],
+        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         write_state: BufferWriteState,
         transport: Transport,
     },
     SendingBody {
-        body: &'a [u8],
-        remaining: &'a [u8],
+        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        buffer: (Vec<u8>, usize, usize),
         write_state: BodyEncodeState,
         transport: Transport,
     },
@@ -58,12 +59,11 @@ pub(crate) enum RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
-    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
-    pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
-        Self::new_with_client_config(request, crate::DEFAULT_CLIENT_CONFIG.clone())
-    }
-    pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: Arc<ClientConfig>) -> RequestSend<'_> {
-        let body = request.body().as_ref();
+    pub fn new_with_client_config<'a>(
+        request: &'a http::Request<()>,
+        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        client_config: Arc<ClientConfig>,
+    ) -> RequestSend<'a> {
         let uri = request.uri();
         let headers = request.headers();
         let method = request.method().clone();
@@ -75,7 +75,7 @@ impl RequestSend<'_> {
             client_config,
         }
     }
-    pub fn poll(&mut self, cx: &mut Context) -> Poll<Result<http::Response<ResponseRead>, HttpError>> {
+    pub fn poll(&mut self, cx: &mut Context) -> Poll<Result<http::Response<ResponseBodyInner>, HttpError>> {
         loop {
             let s = replace(self, RequestSend::Finished);
             match s {
@@ -125,7 +125,7 @@ impl RequestSend<'_> {
                             head.headers_mut().insert(http::header::HOST, host);
                         }
                         if head.headers().get(http::header::CONTENT_LENGTH).is_none() {
-                            let length = HeaderValue::from_str(&format!("{}", body.len())).unwrap();
+                            let length = HeaderValue::from_str(&format!("{}", body.1)).unwrap();
                             head.headers_mut().insert(http::header::CONTENT_LENGTH, length);
                         }
                         let write_state = head.encode_state();
@@ -153,13 +153,12 @@ impl RequestSend<'_> {
                     body,
                 } => match write_state.poll(cx, &mut transport) {
                     Poll::Ready(Ok(())) => {
-                        let write_state = BodyEncodeState::new(Some(body.len() as u64));
-                        let remaining = body;
+                        let write_state = BodyEncodeState::new(Some(body.1));
                         *self = RequestSend::SendingBody {
+                            buffer: (vec![0u8; 1 << 14], 0, 0),
                             body,
                             write_state,
                             transport,
-                            remaining,
                         }
                     }
                     Poll::Ready(Err(err)) => return Poll::Ready(Err(HttpError::IoError(Arc::new(err)))),
@@ -173,36 +172,69 @@ impl RequestSend<'_> {
                     }
                 },
                 RequestSend::SendingBody {
+                    mut buffer,
                     mut write_state,
                     mut transport,
-                    body,
-                    mut remaining,
-                } => match write_state.poll_write(&mut transport, cx, remaining) {
-                    Poll::Ready(Ok(n)) => {
-                        remaining = &remaining[n..];
-                        match remaining.len() {
-                            0 => *self = RequestSend::Flushing { transport },
-                            _ => {
+                    mut body,
+                } => {
+                    if buffer.2 == 0 {
+                        if body.1 == 0 {
+                            *self = RequestSend::Flushing { transport }
+                        } else {
+                            let max = (buffer.0.len() as u64).min(body.1) as usize;
+                            match body.0.as_mut().poll_read(cx, &mut buffer.0[0..max]) {
+                                Poll::Ready(Ok(0)) => return Poll::Ready(Err(HttpError::IoError(Arc::new(UnexpectedEof.into())))),
+                                Poll::Ready(Ok(n)) => {
+                                    buffer.2 = n;
+                                    *self = RequestSend::SendingBody {
+                                        buffer,
+                                        write_state,
+                                        transport,
+                                        body,
+                                    };
+                                }
+                                Poll::Ready(Err(err)) => return Poll::Ready(Err(HttpError::IoError(Arc::new(err)))),
+                                Poll::Pending => {
+                                    *self = RequestSend::SendingBody {
+                                        buffer,
+                                        write_state,
+                                        transport,
+                                        body,
+                                    };
+                                    return Poll::Pending;
+                                }
+                            }
+                        }
+                    } else {
+                        match write_state.poll_write(&mut transport, cx, &buffer.0[buffer.1..buffer.2]) {
+                            Poll::Ready(Ok(n)) => {
+                                body.1 -= n as u64;
+                                buffer.1 += n;
+                                if buffer.1 == buffer.2 {
+                                    buffer.1 = 0;
+                                    buffer.2 = 0;
+                                }
+
                                 *self = RequestSend::SendingBody {
                                     write_state,
                                     transport,
                                     body,
-                                    remaining,
+                                    buffer,
                                 }
+                            }
+                            Poll::Ready(Err(err)) => return Poll::Ready(Err(HttpError::IoError(Arc::new(err)))),
+                            Poll::Pending => {
+                                *self = RequestSend::SendingBody {
+                                    write_state,
+                                    transport,
+                                    body,
+                                    buffer,
+                                };
+                                return Poll::Pending;
                             }
                         }
                     }
-                    Poll::Ready(Err(err)) => return Poll::Ready(Err(HttpError::IoError(Arc::new(err)))),
-                    Poll::Pending => {
-                        *self = RequestSend::SendingBody {
-                            write_state,
-                            transport,
-                            body,
-                            remaining,
-                        };
-                        return Poll::Pending;
-                    }
-                },
+                }
                 RequestSend::Flushing { mut transport } => match Pin::new(&mut transport).poll_flush(cx) {
                     Poll::Ready(Ok(())) => {
                         let dec_state = ResponseHead::decode_state();
@@ -219,7 +251,7 @@ impl RequestSend<'_> {
                     mut transport,
                 } => match dec_state.poll(cx, &mut transport) {
                     Poll::Ready(Ok(head)) => {
-                        let body = ResponseRead::new(transport, &head)?;
+                        let body = ResponseBodyInner::new(transport, &head)?;
                         let parts: http::response::Parts = head.into();
                         return Poll::Ready(Ok(Response::from_parts(parts, body)));
                     }

@@ -1,41 +1,52 @@
-use futures::{future::FusedFuture, ready, AsyncRead, Future};
+use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
+use futures_rustls::rustls::ClientConfig;
+use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 use std::{
     io,
     pin::Pin,
     task::{Context, Poll},
 };
 
+pub use self::body::IntoRequestBody;
 pub use self::error::HttpError;
 
+mod body;
 mod common;
 mod error;
 mod request_native;
 mod response_native;
 
-type ResponseReadInner = response_native::ResponseRead;
+type RequestSendInner<'a> = request_native::RequestSend<'a>;
 
-pub struct RequestSend<'a> {
-    inner: request_native::RequestSend<'a>,
+pub trait RequestExt<'a>: Sized {
+    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
+    fn send<B: IntoRequestBody + 'a>(self, body: B) -> RequestSend<'a> {
+        let client_config = crate::DEFAULT_CLIENT_CONFIG.clone();
+        self.send_with_client_config(body, client_config)
+    }
+    fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
 }
 
-impl RequestSend<'_> {
-    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
-    pub fn new(request: &http::Request<impl AsRef<[u8]>>) -> RequestSend<'_> {
-        let inner = request_native::RequestSend::new(request);
+impl<'a> RequestExt<'a> for &'a http::Request<()> {
+    fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
+        let (read, len) = body.into_request_body();
+        let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);
+        let inner = RequestSendInner::new_with_client_config(self, body, client_config);
         RequestSend { inner }
     }
-    pub fn new_with_client_config(request: &http::Request<impl AsRef<[u8]>>, client_config: std::sync::Arc<crate::ClientConfig>) -> RequestSend<'_> {
-        let inner = request_native::RequestSend::new_with_client_config(request, client_config);
-        RequestSend { inner }
-    }
+}
+
+pub struct RequestSend<'a> {
+    inner: RequestSendInner<'a>,
 }
 
 impl Future for RequestSend<'_> {
-    type Output = Result<http::Response<ResponseRead>, HttpError>;
+    type Output = Result<http::Response<ResponseBody>, HttpError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let response = ready!(self.inner.poll(cx))?;
-        Ok(response.map(|inner| ResponseRead { inner })).into()
+        Ok(response.map(|inner| ResponseBody { inner })).into()
     }
 }
 
@@ -45,19 +56,73 @@ impl FusedFuture for RequestSend<'_> {
     }
 }
 
-pub struct ResponseRead {
-    inner: ResponseReadInner,
+type ResponseBodyInner = response_native::ResponseBodyInner;
+
+pub trait ResponseExt {
+    #[doc(hidden)]
+    fn body_as_async_read(&mut self) -> &mut ResponseBody;
+
+    #[allow(async_fn_in_trait)]
+    async fn body_vec(&mut self, limit: Option<usize>) -> io::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        match limit {
+            None => {
+                self.body_as_async_read().read_to_end(&mut buf).await?;
+            }
+            Some(l) => {
+                self.body_as_async_read().take(l as u64).read_to_end(&mut buf).await?;
+                if self.body_as_async_read().read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
+        Ok(buf)
+    }
+
+    #[allow(async_fn_in_trait)]
+    async fn body_string(&mut self, limit: Option<usize>) -> io::Result<String> {
+        let mut buf = String::new();
+        match limit {
+            None => {
+                self.body_as_async_read().read_to_string(&mut buf).await?;
+            }
+            Some(l) => {
+                self.body_as_async_read().take(l as u64).read_to_string(&mut buf).await?;
+                if self.body_as_async_read().read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
+        Ok(buf)
+    }
+}
+
+impl ResponseExt for http::Response<ResponseBody> {
+    #[doc(hidden)]
+    fn body_as_async_read(&mut self) -> &mut ResponseBody {
+        self.body_mut()
+    }
+}
+
+pub struct ResponseBody {
+    inner: ResponseBodyInner,
 }
 
 #[cfg(feature = "websocket")]
-impl ResponseRead {
+impl ResponseBody {
     pub(crate) fn into_inner(self) -> Result<(async_http_codec::BodyDecodeState, crate::Transport), HttpError> {
         self.inner.into_inner()
     }
 }
 
-impl AsyncRead for ResponseRead {
+impl AsyncRead for ResponseBody {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
+}
+
+impl Debug for ResponseBody {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResponseBody").finish()
     }
 }

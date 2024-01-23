@@ -2,15 +2,14 @@ use async_web_client::WsConnection;
 use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 
 fn main() {
-    env_logger::init();
     smol::block_on(run());
 }
 
 async fn run() {
     if let Err(err) = ws().await {
-        log::error!("{:?}", err);
+        println!("error {:?}", err);
     } else {
-        log::info!("no errors");
+        println!("no errors");
     }
 }
 
@@ -22,6 +21,6 @@ async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     let mut msg = ws.next().await.ok_or("stream ended")?;
     let mut data = Vec::new();
     msg.read_to_end(&mut data).await?;
-    log::info!("received {:?} message: {:?}", msg.kind(), String::from_utf8_lossy(&data));
+    println!("received {:?} message: {:?}", msg.kind(), String::from_utf8_lossy(&data));
     Ok(())
 }

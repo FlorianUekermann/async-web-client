@@ -1,4 +1,5 @@
 mod http;
+pub mod prelude;
 #[cfg(feature = "websocket")]
 mod ws;
 

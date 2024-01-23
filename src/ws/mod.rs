@@ -11,7 +11,7 @@ use async_ws::{
 use futures::{AsyncReadExt, Stream};
 use http::Response;
 
-use crate::{RequestSend, Transport};
+use crate::{http::RequestExt, Transport};
 
 mod error;
 
@@ -34,15 +34,15 @@ impl WsConnection {
         <http::Uri as TryFrom<T>>::Error: Into<http::uri::InvalidUri>,
     {
         let uri: http::Uri = uri.try_into().map_err(Into::into)?;
-        let mut request = Self::connect_request_builder().body("").unwrap();
+        let mut request = Self::connect_request_builder().body(()).unwrap();
         *request.uri_mut() = uri;
         Self::connect(&request).await
     }
-    pub async fn connect(request: &http::Request<impl AsRef<[u8]>>) -> Result<Self, WsConnectError> {
+    pub async fn connect(request: &http::Request<()>) -> Result<Self, WsConnectError> {
         if !is_upgrade_request(request) {
             return Err(WsConnectError::InvalidUpgradeRequest);
         }
-        let response = RequestSend::new(request).await?;
+        let response = request.send(()).await?;
         if !check_upgrade_response(request, &response) {
             let (head, body_reader) = response.into_parts();
             let mut buf = Vec::new();

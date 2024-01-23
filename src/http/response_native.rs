@@ -12,13 +12,13 @@ use crate::Transport;
 
 use super::error::HttpError;
 
-pub struct ResponseRead {
+pub struct ResponseBodyInner {
     state: BodyDecodeState,
     transport: Option<Transport>,
     error: Option<HttpError>,
 }
 
-impl ResponseRead {
+impl ResponseBodyInner {
     pub(crate) fn new(transport: Transport, head: &ResponseHead) -> Result<Self, HttpError> {
         // TODO: Return HeaderValue in upstream error
         let state =
@@ -31,7 +31,7 @@ impl ResponseRead {
     }
     #[cfg(feature = "websocket")]
     pub(crate) fn into_inner(self) -> Result<(BodyDecodeState, Transport), HttpError> {
-        let ResponseRead { state, transport, error } = self;
+        let ResponseBodyInner { state, transport, error } = self;
         if let Some(err) = error {
             return Err(err);
         }
@@ -39,7 +39,7 @@ impl ResponseRead {
     }
 }
 
-impl AsyncRead for ResponseRead {
+impl AsyncRead for ResponseBodyInner {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         if let Some(err) = &self.error {
             return Poll::Ready(Err(err.clone().into()));
