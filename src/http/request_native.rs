@@ -16,7 +16,7 @@ use futures::{AsyncRead, AsyncWrite, Future};
 use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
 
-use crate::{ClientConfig, Transport, TransportError};
+use crate::{ClientConfig, Transport, TransportError, IntoRequestBody};
 
 use super::common::extract_origin;
 use super::error::HttpError;
@@ -59,8 +59,8 @@ pub(crate) enum RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
-    pub fn new_with_client_config<'a>(
-        request: &'a http::Request<()>,
+    pub fn new_with_client_config<'a,T: IntoRequestBody>(
+        request: &'a http::Request<T>,
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         client_config: Arc<ClientConfig>,
     ) -> RequestSend<'a> {
