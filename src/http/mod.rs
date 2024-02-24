@@ -145,3 +145,20 @@ impl Debug for ResponseBody {
         f.debug_struct("ResponseBody").finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use http::Request;
+
+    use crate::RequestWithoutBodyExt;
+    use crate::RequestExt;
+
+    #[test]
+    fn test_send() {
+	let request_empty_body = Request::post("http://postman-echo.com/post").body(()).unwrap();
+	let request_with_body = Request::post("http://postman-echo.com/post").body(&[4u8]).unwrap();
+
+	request_empty_body.send_with_body(&[3u8]);
+	request_with_body.send();
+    }
+}
