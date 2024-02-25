@@ -63,7 +63,7 @@ mod tests {
 
     use crate::prelude::*;
     use http::Request;
-    
+
     #[test]
     fn test_without_body_send() {
 	let request_empty_body = Request::post("http://postman-echo.com/post").body(()).unwrap();

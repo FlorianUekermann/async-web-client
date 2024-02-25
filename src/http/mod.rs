@@ -20,7 +20,7 @@ mod response_native;
 
 type RequestSendInner<'a> = request_native::RequestSend<'a>;
 
-pub trait RequestExt<'a>: Sized {
+pub trait RequestWithBodyExt<'a>: Sized {
     type B: IntoNonUnitRequestBody;
     #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     fn send(self) -> RequestSend<'a> {
@@ -39,7 +39,7 @@ pub trait RequestWithoutBodyExt<'a>: Sized {
     fn send_with_body_and_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
 }
 
-impl<'a,T: IntoNonUnitRequestBody + Clone> RequestExt<'a> for &'a http::Request<T> {
+impl<'a,T: IntoNonUnitRequestBody + Clone> RequestWithBodyExt<'a> for &'a http::Request<T> {
     type B = T;
     fn send_with_client_config(self, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
 	let cloned_self = (*self).clone();
