@@ -7,6 +7,13 @@ pub trait IntoRequestBody {
     fn into_request_body(self) -> (Self::RequestBody, u64);
 }
 
+pub trait NotEmptyBody: IntoRequestBody {}
+
+impl<'a, T: AsRef<[u8]>> NotEmptyBody for &'a T {}
+impl NotEmptyBody for Vec<u8> {}
+impl NotEmptyBody for String {}
+impl<T: NotEmptyBody> NotEmptyBody for Option<T> {}
+
 impl<'a, T: AsRef<[u8]>> IntoRequestBody for &'a T {
     type RequestBody = &'a [u8];
     fn into_request_body(self) -> (Self::RequestBody, u64) {
