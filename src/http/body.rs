@@ -57,3 +57,24 @@ impl<T: IntoRequestBody> IntoRequestBody for Option<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::prelude::*;
+    use http::Request;
+    
+    #[test]
+    fn test_without_body_send() {
+	let request_empty_body = Request::post("http://postman-echo.com/post").body(()).unwrap();
+
+	request_empty_body.send(&[3u8]);
+	request_empty_body.send(());
+    }
+
+    #[test]
+    fn test_with_body_send() {
+	let request_with_body = Request::post("http://postman-echo.com/post").body(&[4u8]).unwrap();
+	request_with_body.send();
+    }
+}
