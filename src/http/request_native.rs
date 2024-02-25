@@ -16,7 +16,7 @@ use futures::{AsyncRead, AsyncWrite, Future};
 use http::uri::{PathAndQuery, Scheme};
 use http::{HeaderMap, HeaderValue, Method, Response, Uri, Version};
 
-use crate::{ClientConfig, Transport, TransportError, IntoRequestBody};
+use crate::{ClientConfig, Transport, TransportError};
 
 use super::common::extract_origin;
 use super::error::HttpError;
