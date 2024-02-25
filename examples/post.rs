@@ -1,4 +1,4 @@
-use async_web_client::{prelude::*, RequestWithoutBodyExt};
+use async_web_client::prelude::*;
 use http::Request;
 
 fn main() {
