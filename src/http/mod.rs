@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use self::body::IntoNonUnitRequestBody;
 pub use self::body::IntoRequestBody;
 pub use self::error::HttpError;
 
@@ -19,7 +20,17 @@ mod response_native;
 
 type RequestSendInner<'a> = request_native::RequestSend<'a>;
 
-pub trait RequestExt<'a>: Sized {
+pub trait RequestWithBodyExt<'a>: Sized {
+    type B: IntoNonUnitRequestBody;
+    #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
+    fn send(self) -> RequestSend<'a> {
+        let client_config = crate::DEFAULT_CLIENT_CONFIG.clone();
+        self.send_with_client_config(client_config)
+    }
+    fn send_with_client_config(self, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
+}
+
+pub trait RequestWithoutBodyExt<'a>: Sized {
     #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     fn send<B: IntoRequestBody + 'a>(self, body: B) -> RequestSend<'a> {
         let client_config = crate::DEFAULT_CLIENT_CONFIG.clone();
@@ -28,7 +39,18 @@ pub trait RequestExt<'a>: Sized {
     fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
 }
 
-impl<'a> RequestExt<'a> for &'a http::Request<()> {
+impl<'a, T: IntoNonUnitRequestBody + Clone> RequestWithBodyExt<'a> for &'a http::Request<T> {
+    type B = T;
+    fn send_with_client_config(self, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
+        let cloned_self = (*self).clone();
+        let (read, len) = cloned_self.into_body().into_request_body();
+        let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);
+        let inner = RequestSendInner::new_with_client_config(self, body, client_config);
+        RequestSend { inner }
+    }
+}
+
+impl<'a> RequestWithoutBodyExt<'a> for &'a http::Request<()> {
     fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
         let (read, len) = body.into_request_body();
         let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);

@@ -11,7 +11,7 @@ use async_ws::{
 use futures::{AsyncReadExt, Stream};
 use http::Response;
 
-use crate::{http::RequestExt, Transport};
+use crate::{http::RequestWithoutBodyExt, Transport};
 
 mod error;
 

@@ -16,7 +16,7 @@ async fn run() {
 async fn post() -> Result<(), Box<dyn std::error::Error>> {
     let request = Request::post("http://postman-echo.com/post").body(())?;
 
-    let mut response = request.send(Some(&"hello post")).await?;
+    let mut response = request.send(&"hello post").await?;
     println!("response head: {response:#?}");
     let body = response.body_string(Some(1024)).await?;
     println!("response body: {body}");

@@ -7,6 +7,13 @@ pub trait IntoRequestBody {
     fn into_request_body(self) -> (Self::RequestBody, u64);
 }
 
+pub trait IntoNonUnitRequestBody: IntoRequestBody {}
+
+impl<'a, T: AsRef<[u8]>> IntoNonUnitRequestBody for &'a T {}
+impl IntoNonUnitRequestBody for Vec<u8> {}
+impl IntoNonUnitRequestBody for String {}
+impl<T: IntoNonUnitRequestBody> IntoNonUnitRequestBody for Option<T> {}
+
 impl<'a, T: AsRef<[u8]>> IntoRequestBody for &'a T {
     type RequestBody = &'a [u8];
     fn into_request_body(self) -> (Self::RequestBody, u64) {
@@ -48,5 +55,33 @@ impl<T: IntoRequestBody> IntoRequestBody for Option<T> {
                 (Either::Right(request_body), len)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::prelude::*;
+    use http::Request;
+
+    #[test]
+    fn test_send_with_as_ref() {
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send(&[3u8]);
+        Request::post("http://postman-echo.com/post").body(&[3u8]).unwrap().send();
+    }
+    #[test]
+    fn test_send_with_vec() {
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send(vec![1, 2, 3]);
+        Request::post("http://postman-echo.com/post").body(vec![1, 2, 3]).unwrap().send();
+    }
+    #[test]
+    fn test_send_with_string() {
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send("test".to_string());
+        Request::post("http://postman-echo.com/post").body("test".to_string()).unwrap().send();
+    }
+    #[test]
+    fn test_send_with_option() {
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send(Some(&[1, 2, 3]));
+        Request::post("http://postman-echo.com/post").body(Some(&[1, 2, 3])).unwrap().send();
     }
 }

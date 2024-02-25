@@ -59,8 +59,8 @@ pub(crate) enum RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
-    pub fn new_with_client_config<'a>(
-        request: &'a http::Request<()>,
+    pub fn new_with_client_config<'a, T>(
+        request: &'a http::Request<T>,
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         client_config: Arc<ClientConfig>,
     ) -> RequestSend<'a> {
