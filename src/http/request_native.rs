@@ -26,15 +26,15 @@ pub(crate) enum RequestSend<'a> {
     Start {
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         method: Method,
-        uri: &'a Uri,
-        headers: &'a HeaderMap,
+        uri: Uri,
+        headers: HeaderMap,
         client_config: Arc<ClientConfig>,
     },
     PendingConnect {
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         method: Method,
-        uri: &'a Uri,
-        headers: &'a HeaderMap,
+        uri: Uri,
+        headers: HeaderMap,
         transport: Pin<Box<dyn Future<Output = Result<Transport, TransportError>> + Send>>,
     },
     SendingHead {
@@ -59,13 +59,14 @@ pub(crate) enum RequestSend<'a> {
 }
 
 impl RequestSend<'_> {
-    pub fn new_with_client_config<'a, T>(
-        request: &'a http::Request<T>,
+    pub fn new_with_client_config<'a>(
+        request: http::Request<()>,
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         client_config: Arc<ClientConfig>,
     ) -> RequestSend<'a> {
-        let uri = request.uri();
-        let headers = request.headers();
+        //let (http::request::Parts { uri, headers, method, ..} , ()) = request.;
+        let uri = request.uri().clone();
+        let headers = request.headers().clone();
         let method = request.method().clone();
         RequestSend::Start {
             method,
@@ -86,7 +87,7 @@ impl RequestSend<'_> {
                     headers,
                     client_config,
                 } => {
-                    let (scheme, host, port) = extract_origin(uri, headers)?;
+                    let (scheme, host, port) = extract_origin(&uri, &headers)?;
                     let https = match scheme {
                         _ if scheme == Some(Scheme::HTTP) => false,
                         _ if scheme == Some(Scheme::HTTPS) => true,
@@ -114,9 +115,9 @@ impl RequestSend<'_> {
                     headers,
                 } => match transport.as_mut().poll(cx) {
                     Poll::Ready(Ok(transport)) => {
-                        let (_scheme, host, port) = extract_origin(uri, headers)?;
+                        let (_scheme, host, port) = extract_origin(&uri, &headers)?;
                         let uri = uri.path_and_query().cloned().unwrap_or_else(|| PathAndQuery::from_static("/")).into();
-                        let mut head = RequestHead::new(method, Cow::Owned(uri), Version::HTTP_11, Cow::Borrowed(headers));
+                        let mut head = RequestHead::new(method, Cow::Owned(uri), Version::HTTP_11, Cow::Borrowed(&headers));
                         if head.headers().get(http::header::HOST).is_none() {
                             let host = match port {
                                 Some(port) => HeaderValue::from_str(&format!("{}:{}", host, port)).unwrap(),
