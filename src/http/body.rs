@@ -74,7 +74,8 @@ mod tests {
 
     #[test]
     fn test_send_with_async_read_body() {
-        Request::post("http://postman-echo.com/post").body((&[3u8] as &[u8],1)).unwrap().send();
+        Request::post("http://postman-echo.com/post").body((futures::io::Cursor::new(&[3u8]),1)).unwrap().send();
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send((futures::io::Cursor::new(&[3u8]),1));
     }
     #[test]
     fn test_send_with_as_ref() {
