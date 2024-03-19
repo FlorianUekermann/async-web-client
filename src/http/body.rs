@@ -73,6 +73,10 @@ mod tests {
     use http::Request;
 
     #[test]
+    fn test_send_with_async_read_body() {
+        Request::post("http://postman-echo.com/post").body((&[3u8] as &[u8],1)).unwrap().send();
+    }
+    #[test]
     fn test_send_with_as_ref() {
         Request::post("http://postman-echo.com/post").body(()).unwrap().send(&[3u8]);
         Request::post("http://postman-echo.com/post").body(&[3u8]).unwrap().send();
