@@ -10,9 +10,17 @@ pub trait IntoRequestBody {
 pub trait IntoNonUnitRequestBody: IntoRequestBody {}
 
 impl<'a, T: AsRef<[u8]>> IntoNonUnitRequestBody for &'a T {}
+impl<'a, T: AsyncRead> IntoNonUnitRequestBody for (T, u64) {}
 impl IntoNonUnitRequestBody for Vec<u8> {}
 impl IntoNonUnitRequestBody for String {}
 impl<T: IntoNonUnitRequestBody> IntoNonUnitRequestBody for Option<T> {}
+
+impl<'a, T: AsyncRead> IntoRequestBody for (T, u64) {
+    type RequestBody = T;
+    fn into_request_body(self) -> (Self::RequestBody, u64) {
+        (self.0, self.1)
+    }
+}
 
 impl<'a, T: AsRef<[u8]>> IntoRequestBody for &'a T {
     type RequestBody = &'a [u8];
@@ -64,6 +72,11 @@ mod tests {
     use crate::prelude::*;
     use http::Request;
 
+    #[test]
+    fn test_send_with_async_read_body() {
+        Request::post("http://postman-echo.com/post").body((futures::io::Cursor::new(&[3u8]),1)).unwrap().send();
+        Request::post("http://postman-echo.com/post").body(()).unwrap().send((futures::io::Cursor::new(&[3u8]),1));
+    }
     #[test]
     fn test_send_with_as_ref() {
         Request::post("http://postman-echo.com/post").body(()).unwrap().send(&[3u8]);

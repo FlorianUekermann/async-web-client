@@ -32,29 +32,39 @@ pub trait RequestWithBodyExt<'a>: Sized {
 
 pub trait RequestWithoutBodyExt<'a>: Sized {
     #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
-    fn send<B: IntoRequestBody + 'a>(self, body: B) -> RequestSend<'a> {
+    fn send<B: IntoRequestBody + 'a>(&self, body: B) -> RequestSend<'a> {
         let client_config = crate::DEFAULT_CLIENT_CONFIG.clone();
         self.send_with_client_config(body, client_config)
     }
-    fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
+    fn send_with_client_config<B: IntoRequestBody + 'a>(&self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a>;
 }
 
-impl<'a, T: IntoNonUnitRequestBody + Clone> RequestWithBodyExt<'a> for &'a http::Request<T> {
-    type B = T;
-    fn send_with_client_config(self, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
-        let cloned_self = (*self).clone();
-        let (read, len) = cloned_self.into_body().into_request_body();
-        let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);
-        let inner = RequestSendInner::new_with_client_config(self, body, client_config);
-        RequestSend { inner }
+pub trait RequestExt {
+    type Body;
+    fn swap_body<T>(self, body: T) -> (http::Request<T>, Self::Body);
+}
+
+impl<B> RequestExt for http::Request<B> {
+    type Body = B;
+    fn swap_body<T>(self, body: T) -> (http::Request<T>, Self::Body) {
+        let (head, old_body) = self.into_parts();
+        (http::Request::from_parts(head, body), old_body)
     }
 }
 
-impl<'a> RequestWithoutBodyExt<'a> for &'a http::Request<()> {
-    fn send_with_client_config<B: IntoRequestBody + 'a>(self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
+impl<'a, T: IntoNonUnitRequestBody + 'a> RequestWithBodyExt<'a> for http::Request<T> {
+    type B = T;
+    fn send_with_client_config(self, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
+        let (this, body) = self.swap_body(());
+        this.send_with_client_config(body, client_config)
+    }
+}
+
+impl<'a> RequestWithoutBodyExt<'a> for http::Request<()> {
+    fn send_with_client_config<B: IntoRequestBody + 'a>(&self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
         let (read, len) = body.into_request_body();
         let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);
-        let inner = RequestSendInner::new_with_client_config(self, body, client_config);
+        let inner = RequestSendInner::new_with_client_config(self.clone(), body, client_config);
         RequestSend { inner }
     }
 }
