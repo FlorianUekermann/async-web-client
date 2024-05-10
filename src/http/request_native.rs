@@ -64,7 +64,6 @@ impl RequestSend<'_> {
         body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
         client_config: Arc<ClientConfig>,
     ) -> RequestSend<'a> {
-        //let (http::request::Parts { uri, headers, method, ..} , ()) = request.;
         let uri = request.uri().clone();
         let headers = request.headers().clone();
         let method = request.method().clone();
@@ -116,8 +115,11 @@ impl RequestSend<'_> {
                 } => match transport.as_mut().poll(cx) {
                     Poll::Ready(Ok(transport)) => {
                         let (_scheme, host, port) = extract_origin(&uri, &headers)?;
-                        let uri = uri.path_and_query().cloned().unwrap_or_else(|| PathAndQuery::from_static("/")).into();
-                        let mut head = RequestHead::new(method, Cow::Owned(uri), Version::HTTP_11, Cow::Borrowed(&headers));
+                        let mut path_and_query = uri.path_and_query().cloned().unwrap_or_else(|| PathAndQuery::from_static("/"));
+                        if path_and_query == PathAndQuery::from_static("") {
+                            path_and_query = PathAndQuery::from_static("/");
+                        }
+                        let mut head = RequestHead::new(method, Cow::Owned(path_and_query.into()), Version::HTTP_11, Cow::Borrowed(&headers));
                         if head.headers().get(http::header::HOST).is_none() {
                             let host = match port {
                                 Some(port) => HeaderValue::from_str(&format!("{}:{}", host, port)).unwrap(),
