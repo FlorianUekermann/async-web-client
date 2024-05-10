@@ -115,11 +115,12 @@ lazy_static::lazy_static! {
         #[cfg(feature = "aws-lc-rs")]
         let provider = futures_rustls::rustls::crypto::aws_lc_rs::default_provider();
 
-        let config = ClientConfig::builder_with_provider(Arc::new(provider))
+        let mut config = ClientConfig::builder_with_provider(Arc::new(provider))
             .with_safe_default_protocol_versions()
             .expect("could not enable default TLS versions")
             .with_root_certificates(root_store)
             .with_no_client_auth();
+        config.alpn_protocols.push(b"http/1.1".to_vec());
         Arc::new(config)
     };
 }
