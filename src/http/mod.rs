@@ -63,13 +63,16 @@ impl<'a, T: IntoNonUnitRequestBody + 'a> RequestWithBodyExt<'a> for http::Reques
 impl<'a> RequestWithoutBodyExt<'a> for http::Request<()> {
     fn send_with_client_config<B: IntoRequestBody + 'a>(&self, body: B, client_config: Arc<ClientConfig>) -> RequestSend<'a> {
         let (read, len) = body.into_request_body();
-        let body: (Pin<Box<dyn AsyncRead>>, _) = (Box::pin(read), len);
+        let body: (Pin<Box<dyn AsyncRead + Send>>, _) = (Box::pin(read), len);
         let inner = RequestSendInner::new_with_client_config(self.clone(), body, client_config);
         RequestSend { inner }
     }
 }
 
-pub struct RequestSend<'a> {
+pub struct RequestSend<'a>
+where
+    Self: Send,
+{
     inner: RequestSendInner<'a>,
 }
 

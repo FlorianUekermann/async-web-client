@@ -24,26 +24,26 @@ use super::response_native::ResponseBodyInner;
 
 pub(crate) enum RequestSend<'a> {
     Start {
-        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         method: Method,
         uri: Uri,
         headers: HeaderMap,
         client_config: Arc<ClientConfig>,
     },
     PendingConnect {
-        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         method: Method,
         uri: Uri,
         headers: HeaderMap,
         transport: Pin<Box<dyn Future<Output = Result<Transport, TransportError>> + Send>>,
     },
     SendingHead {
-        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         write_state: BufferWriteState,
         transport: Transport,
     },
     SendingBody {
-        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         buffer: (Vec<u8>, usize, usize),
         write_state: BodyEncodeState,
         transport: Transport,
@@ -61,7 +61,7 @@ pub(crate) enum RequestSend<'a> {
 impl RequestSend<'_> {
     pub fn new_with_client_config<'a>(
         request: http::Request<()>,
-        body: (Pin<Box<dyn AsyncRead + 'a>>, u64),
+        body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         client_config: Arc<ClientConfig>,
     ) -> RequestSend<'a> {
         let uri = request.uri().clone();
