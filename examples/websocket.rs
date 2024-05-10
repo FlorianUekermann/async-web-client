@@ -2,6 +2,7 @@ use async_web_client::WsConnection;
 use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 
 fn main() {
+    env_logger::init();
     smol::block_on(run());
 }
 
