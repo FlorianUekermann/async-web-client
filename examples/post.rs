@@ -19,7 +19,7 @@ async fn post() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut response = request.send(&"hello post").await?;
     println!("response head: {response:#?}");
-    let body = response.body_string(Some(1024)).await?;
+    let body: serde_json::Value = response.body_mut().json().await?;
     println!("response body: {body}");
     Ok(())
 }

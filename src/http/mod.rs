@@ -1,16 +1,20 @@
-use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
+use async_net::TcpStream;
+use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future, TryFutureExt};
 use futures_rustls::rustls::ClientConfig;
+use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
+use std::io::ErrorKind::InvalidData;
+use std::io::{BufReader, ErrorKind};
 use std::sync::Arc;
 use std::{
     io,
     pin::Pin,
     task::{Context, Poll},
 };
-
 use self::body::IntoNonUnitRequestBody;
 pub use self::body::IntoRequestBody;
 pub use self::error::HttpError;
+use crate::HttpError::IoError;
 
 mod body;
 mod common;
@@ -147,6 +151,24 @@ pub struct ResponseBody {
 impl ResponseBody {
     pub(crate) fn into_inner(self) -> Result<(async_http_codec::BodyDecodeState, crate::Transport), HttpError> {
         self.inner.into_inner()
+    }
+}
+impl ResponseBody {
+    pub async fn bytes(&mut self) -> Result<Vec<u8>, io::Error> {
+        let mut result = Vec::new();
+        self.read_to_end(&mut result).await?;
+        Ok(result)
+    }
+
+    pub async fn string(&mut self) -> Result<String, io::Error> {
+        let bytes = self.bytes().await?;
+        let string = String::from_utf8(bytes).map_err(|error| io::Error::new(InvalidData, error))?;
+        Ok(string)
+    }
+    pub async fn json<T: DeserializeOwned>(&mut self) -> Result<T, io::Error> {
+        let json_string = self.string().await?;
+        let result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
+        Ok(result?)
     }
 }
 
