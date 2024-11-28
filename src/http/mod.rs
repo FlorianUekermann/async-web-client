@@ -1,20 +1,20 @@
-use async_net::TcpStream;
-use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future, TryFutureExt};
+//use async_net::TcpStream;
+use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
 use futures_rustls::rustls::ClientConfig;
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
 use std::io::ErrorKind::InvalidData;
-use std::io::{BufReader, ErrorKind};
+//use std::io::{BufReader, ErrorKind};
+use self::body::IntoNonUnitRequestBody;
+pub use self::body::IntoRequestBody;
+pub use self::error::HttpError;
 use std::sync::Arc;
 use std::{
     io,
     pin::Pin,
     task::{Context, Poll},
 };
-use self::body::IntoNonUnitRequestBody;
-pub use self::body::IntoRequestBody;
-pub use self::error::HttpError;
-use crate::HttpError::IoError;
+//use crate::HttpError::IoError;
 
 mod body;
 mod common;
@@ -154,20 +154,53 @@ impl ResponseBody {
     }
 }
 impl ResponseBody {
-    pub async fn bytes(&mut self) -> Result<Vec<u8>, io::Error> {
+    pub async fn bytes(&mut self, limit: Option<usize>) -> Result<Vec<u8>, io::Error> {
         let mut result = Vec::new();
-        self.read_to_end(&mut result).await?;
+        match limit {
+            None => {
+                self.read_to_end(&mut result).await?;
+            }
+            Some(l) => {
+                self.take(l as u64).read_to_end(&mut result).await?;
+                if self.read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
         Ok(result)
     }
 
-    pub async fn string(&mut self) -> Result<String, io::Error> {
-        let bytes = self.bytes().await?;
-        let string = String::from_utf8(bytes).map_err(|error| io::Error::new(InvalidData, error))?;
-        Ok(string)
+    pub async fn string(&mut self, limit: Option<usize>) -> Result<std::string::String, io::Error> {
+        let mut result = std::string::String::new();
+        match limit {
+            None => {
+                self.read_to_string(&mut result).await?;
+            }
+            Some(l) => {
+                self.take(l as u64).read_to_string(&mut result).await?;
+                if self.read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
+        Ok(result)
     }
-    pub async fn json<T: DeserializeOwned>(&mut self) -> Result<T, io::Error> {
-        let json_string = self.string().await?;
-        let result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
+    pub async fn json<T: DeserializeOwned>(&mut self, limit: Option<usize>) -> Result<T, io::Error> {
+        let mut json_string = std::string::String::new();
+        let result;
+        match limit {
+            None => {
+                self.read_to_string(&mut json_string).await?;
+                result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
+            }
+            Some(l) => {
+                self.take(l as u64).read_to_string(&mut json_string).await?;
+                if self.read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+                result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
+            }
+        }
         Ok(result?)
     }
 }
