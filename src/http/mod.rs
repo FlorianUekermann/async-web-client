@@ -1,10 +1,8 @@
-//use async_net::TcpStream;
 use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
 use futures_rustls::rustls::ClientConfig;
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
 use std::io::ErrorKind::InvalidData;
-//use std::io::{BufReader, ErrorKind};
 use self::body::IntoNonUnitRequestBody;
 pub use self::body::IntoRequestBody;
 pub use self::error::HttpError;
@@ -14,8 +12,6 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-//use crate::HttpError::IoError;
-
 mod body;
 mod common;
 mod error;
@@ -170,8 +166,8 @@ impl ResponseBody {
         Ok(result)
     }
 
-    pub async fn string(&mut self, limit: Option<usize>) -> Result<std::string::String, io::Error> {
-        let mut result = std::string::String::new();
+    pub async fn string(&mut self, limit: Option<usize>) -> Result<String, io::Error> {
+        let mut result = String::new();
         match limit {
             None => {
                 self.read_to_string(&mut result).await?;
@@ -186,7 +182,7 @@ impl ResponseBody {
         Ok(result)
     }
     pub async fn json<T: DeserializeOwned>(&mut self, limit: Option<usize>) -> Result<T, io::Error> {
-        let mut json_string = std::string::String::new();
+        let mut json_string = String::new();
         let result;
         match limit {
             None => {
