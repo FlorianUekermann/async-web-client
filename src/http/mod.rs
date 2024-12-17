@@ -181,6 +181,7 @@ impl ResponseBody {
         };
         Ok(result)
     }
+    #[cfg(feature = "json")]
     pub async fn json<T: DeserializeOwned>(&mut self, limit: Option<usize>) -> Result<T, io::Error> {
         let mut json_string = String::new();
         let result;

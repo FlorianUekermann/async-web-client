@@ -19,19 +19,20 @@ futures-rustls = { version = "0.26", default-features = false }
 async-ws = { version = "0.4.0", optional = true }
 webpki-roots = "0.26.0"
 
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"]}
+serde_json = { version = "1.0", optional = true}
 
 [dev-dependencies]
 smol = "2.0.0"
 env_logger = "0.11.3"
 
 [features]
-default = ["aws-lc-rs", "tls12"]
+default = ["aws-lc-rs", "tls12", "json"]
 tls12 = ["futures-rustls/tls12"]
 ring = ["futures-rustls/ring"]
 aws-lc-rs = ["futures-rustls/aws-lc-rs"]
 websocket = ["async-ws"]
+json = ["serde_json"]
 
 [[example]]
 name = "post"
