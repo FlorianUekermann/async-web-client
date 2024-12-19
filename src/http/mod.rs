@@ -1,17 +1,17 @@
+use self::body::IntoNonUnitRequestBody;
+pub use self::body::IntoRequestBody;
+pub use self::error::HttpError;
 use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
 use futures_rustls::rustls::ClientConfig;
+use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
+use std::io::ErrorKind::InvalidData;
 use std::sync::Arc;
 use std::{
     io,
     pin::Pin,
     task::{Context, Poll},
 };
-
-use self::body::IntoNonUnitRequestBody;
-pub use self::body::IntoRequestBody;
-pub use self::error::HttpError;
-
 mod body;
 mod common;
 mod error;
@@ -147,6 +147,45 @@ pub struct ResponseBody {
 impl ResponseBody {
     pub(crate) fn into_inner(self) -> Result<(async_http_codec::BodyDecodeState, crate::Transport), HttpError> {
         self.inner.into_inner()
+    }
+}
+impl ResponseBody {
+    pub async fn bytes(&mut self, limit: Option<usize>) -> Result<Vec<u8>, io::Error> {
+        let mut result = Vec::new();
+        match limit {
+            None => {
+                self.read_to_end(&mut result).await?;
+            }
+            Some(l) => {
+                self.take(l as u64).read_to_end(&mut result).await?;
+                if self.read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
+        Ok(result)
+    }
+
+    pub async fn string(&mut self, limit: Option<usize>) -> Result<String, io::Error> {
+        let mut result = String::new();
+        match limit {
+            None => {
+                self.read_to_string(&mut result).await?;
+            }
+            Some(l) => {
+                self.take(l as u64).read_to_string(&mut result).await?;
+                if self.read(&mut [0u8]).await? > 0 {
+                    return Err(io::ErrorKind::OutOfMemory.into());
+                }
+            }
+        };
+        Ok(result)
+    }
+    #[cfg(feature = "json")]
+    pub async fn json<T: DeserializeOwned>(&mut self, limit: Option<usize>) -> Result<T, io::Error> {
+        let json_string = self.string(limit).await?;
+        let result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()))?;
+        Ok(result)
     }
 }
 
