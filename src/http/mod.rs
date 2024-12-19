@@ -93,52 +93,6 @@ impl FusedFuture for RequestSend<'_> {
 
 type ResponseBodyInner = response_native::ResponseBodyInner;
 
-pub trait ResponseExt {
-    #[doc(hidden)]
-    fn body_as_async_read(&mut self) -> &mut ResponseBody;
-
-    #[allow(async_fn_in_trait)]
-    async fn body_vec(&mut self, limit: Option<usize>) -> io::Result<Vec<u8>> {
-        let mut buf = Vec::new();
-        match limit {
-            None => {
-                self.body_as_async_read().read_to_end(&mut buf).await?;
-            }
-            Some(l) => {
-                self.body_as_async_read().take(l as u64).read_to_end(&mut buf).await?;
-                if self.body_as_async_read().read(&mut [0u8]).await? > 0 {
-                    return Err(io::ErrorKind::OutOfMemory.into());
-                }
-            }
-        };
-        Ok(buf)
-    }
-
-    #[allow(async_fn_in_trait)]
-    async fn body_string(&mut self, limit: Option<usize>) -> io::Result<String> {
-        let mut buf = String::new();
-        match limit {
-            None => {
-                self.body_as_async_read().read_to_string(&mut buf).await?;
-            }
-            Some(l) => {
-                self.body_as_async_read().take(l as u64).read_to_string(&mut buf).await?;
-                if self.body_as_async_read().read(&mut [0u8]).await? > 0 {
-                    return Err(io::ErrorKind::OutOfMemory.into());
-                }
-            }
-        };
-        Ok(buf)
-    }
-}
-
-impl ResponseExt for http::Response<ResponseBody> {
-    #[doc(hidden)]
-    fn body_as_async_read(&mut self) -> &mut ResponseBody {
-        self.body_mut()
-    }
-}
-
 pub struct ResponseBody {
     inner: ResponseBodyInner,
 }
