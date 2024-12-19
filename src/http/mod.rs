@@ -183,22 +183,9 @@ impl ResponseBody {
     }
     #[cfg(feature = "json")]
     pub async fn json<T: DeserializeOwned>(&mut self, limit: Option<usize>) -> Result<T, io::Error> {
-        let mut json_string = String::new();
-        let result;
-        match limit {
-            None => {
-                self.read_to_string(&mut json_string).await?;
-                result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
-            }
-            Some(l) => {
-                self.take(l as u64).read_to_string(&mut json_string).await?;
-                if self.read(&mut [0u8]).await? > 0 {
-                    return Err(io::ErrorKind::OutOfMemory.into());
-                }
-                result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()));
-            }
-        }
-        Ok(result?)
+        let json_string = self.string(limit).await?;
+        let result = serde_json::from_str(&json_string).map_err(|error| HttpError::IoError(io::Error::new(InvalidData, error).into()))?;
+        Ok(result)
     }
 }
 
