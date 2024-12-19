@@ -1,11 +1,9 @@
 use async_web_client::prelude::*;
 use http::Request;
-
 fn main() {
     env_logger::init();
     smol::block_on(run());
 }
-
 async fn run() {
     if let Err(err) = post().await {
         println!("error {:?}", err);
@@ -13,7 +11,6 @@ async fn run() {
         println!("no errors");
     }
 }
-
 async fn post() -> Result<(), Box<dyn std::error::Error>> {
     let request = Request::post("https://postman-echo.com/post").body(())?;
 

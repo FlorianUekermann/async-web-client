@@ -1,11 +1,11 @@
+use self::body::IntoNonUnitRequestBody;
+pub use self::body::IntoRequestBody;
+pub use self::error::HttpError;
 use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
 use futures_rustls::rustls::ClientConfig;
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
 use std::io::ErrorKind::InvalidData;
-use self::body::IntoNonUnitRequestBody;
-pub use self::body::IntoRequestBody;
-pub use self::error::HttpError;
 use std::sync::Arc;
 use std::{
     io,
