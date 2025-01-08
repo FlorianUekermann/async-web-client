@@ -24,6 +24,6 @@ jobs:
       - run: rustup component add clippy
       - run: rustup component add rustfmt
       - run: cargo fmt --check
-      - run: cargo build --verbose --features ${{ matrix.crypto }},${{ matrix.ws }},${{ matrix.json }}
-      - run: cargo test --verbose --features ${{ matrix.crypto }},${{ matrix.ws }},${{ matrix.json }}
+      - run: cargo build --verbose  --no-default-features --features ${{ matrix.crypto }},${{ matrix.ws }},${{ matrix.json }}
+      - run: cargo test --verbose  --no-default-features --features ${{ matrix.crypto }},${{ matrix.ws }},${{ matrix.json }}
       - run: cargo clippy --tests --no-default-features --features ${{ matrix.crypto }},${{ matrix.ws }},${{ matrix.json }}
