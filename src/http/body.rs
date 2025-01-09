@@ -10,12 +10,12 @@ pub trait IntoRequestBody {
 pub trait IntoNonUnitRequestBody: IntoRequestBody {}
 
 impl<'a, T: AsRef<[u8]>> IntoNonUnitRequestBody for &'a T {}
-impl<'a, T: AsyncRead + Send> IntoNonUnitRequestBody for (T, u64) {}
+impl<T: AsyncRead + Send> IntoNonUnitRequestBody for (T, u64) {}
 impl IntoNonUnitRequestBody for Vec<u8> {}
 impl IntoNonUnitRequestBody for String {}
 impl<T: IntoNonUnitRequestBody> IntoNonUnitRequestBody for Option<T> {}
 
-impl<'a, T: AsyncRead + Send> IntoRequestBody for (T, u64) {
+impl<T: AsyncRead + Send> IntoRequestBody for (T, u64) {
     type RequestBody = T;
     fn into_request_body(self) -> (Self::RequestBody, u64) {
         (self.0, self.1)
