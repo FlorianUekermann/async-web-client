@@ -103,8 +103,8 @@ lazy_static::lazy_static! {
         .map(|t| {
             let t = t.to_owned();
             rustls_pki_types::TrustAnchor {
-                subject: t.subject.into(),
-                subject_public_key_info: t.subject_public_key_info.into(),
+                subject: t.subject,
+                subject_public_key_info: t.subject_public_key_info,
                 name_constraints: t.name_constraints.map(Into::into),
             }
         });

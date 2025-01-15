@@ -45,7 +45,7 @@ pub(crate) enum RequestSend<'a> {
     SendingBody {
         body: (Pin<Box<dyn AsyncRead + Send + 'a>>, u64),
         buffer: (Vec<u8>, usize, usize),
-        write_state: BodyEncodeState,
+        write_state: Box<BodyEncodeState>,
         transport: Transport,
     },
     Flushing {
@@ -160,7 +160,7 @@ impl RequestSend<'_> {
                         *self = RequestSend::SendingBody {
                             buffer: (vec![0u8; 1 << 14], 0, 0),
                             body,
-                            write_state,
+                            write_state: Box::new(write_state),
                             transport,
                         }
                     }
@@ -269,9 +269,6 @@ impl RequestSend<'_> {
         }
     }
     pub fn is_terminated(&self) -> bool {
-        match self {
-            RequestSend::Finished => true,
-            _ => false,
-        }
+        matches!(self, RequestSend::Finished)
     }
 }
