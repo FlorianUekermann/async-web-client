@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         toolchain: ["stable", "beta", "nightly"]
-        crypto: ["ring", "aws-lc-rs", "ring,aws-lc-rs", ""]
+        crypto: ["ring", "aws-lc-rs", "ring,aws-lc-rs"]
         ws: ["websocket", ""]
         json: ["json",""]
     steps:
