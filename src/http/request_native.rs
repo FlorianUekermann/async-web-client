@@ -116,7 +116,7 @@ impl RequestSend<'_> {
                     Poll::Ready(Ok(transport)) => {
                         let (_scheme, host, port) = extract_origin(&uri, &headers)?;
                         let mut path_and_query = uri.path_and_query().cloned().unwrap_or_else(|| PathAndQuery::from_static("/"));
-                        if path_and_query == PathAndQuery::from_static("") {
+                        if path_and_query.as_str().is_empty() {
                             path_and_query = PathAndQuery::from_static("/");
                         }
                         let mut head = RequestHead::new(method, Cow::Owned(path_and_query.into()), Version::HTTP_11, Cow::Borrowed(&headers));
