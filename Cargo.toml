@@ -10,7 +10,7 @@ repository = "https://github.com/FlorianUekermann/async-web-client"
 http = "1.0.0"
 futures = "0.3.28"
 log = "0.4.17"
-thiserror = "1.0"
+thiserror = "2.0"
 lazy_static = "1.4.0"
 rustls-pki-types = { version = "1.0.0", features = ["std"] }
 async-http-codec = "0.8.0"
