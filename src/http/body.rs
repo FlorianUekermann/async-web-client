@@ -9,7 +9,7 @@ pub trait IntoRequestBody {
 
 pub trait IntoNonUnitRequestBody: IntoRequestBody {}
 
-impl<'a, T: AsRef<[u8]>> IntoNonUnitRequestBody for &'a T {}
+impl<T: AsRef<[u8]>> IntoNonUnitRequestBody for &T {}
 impl<T: AsyncRead + Send> IntoNonUnitRequestBody for (T, u64) {}
 impl IntoNonUnitRequestBody for Vec<u8> {}
 impl IntoNonUnitRequestBody for String {}

@@ -3,8 +3,10 @@ pub use self::body::IntoRequestBody;
 pub use self::error::HttpError;
 use futures::{future::FusedFuture, ready, AsyncRead, AsyncReadExt, Future};
 use futures_rustls::rustls::ClientConfig;
+#[cfg(feature = "json")]
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
+#[cfg(feature = "json")]
 use std::io::ErrorKind::InvalidData;
 use std::sync::Arc;
 use std::{

@@ -19,6 +19,7 @@ use rustls_pki_types::{InvalidDnsNameError, ServerName};
 #[cfg(feature = "websocket")]
 pub use ws::*;
 
+#[allow(clippy::large_enum_variant)]
 pub enum Transport {
     Tcp(TcpStream),
     Tls(TlsStream<TcpStream>),
@@ -98,18 +99,8 @@ pub enum TransportError {
 #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
 lazy_static::lazy_static! {
     pub (crate) static ref DEFAULT_CLIENT_CONFIG: Arc<ClientConfig> = {
-        let roots = webpki_roots::TLS_SERVER_ROOTS
-        .iter()
-        .map(|t| {
-            let t = t.to_owned();
-            rustls_pki_types::TrustAnchor {
-                subject: t.subject,
-                subject_public_key_info: t.subject_public_key_info,
-                name_constraints: t.name_constraints.map(Into::into),
-            }
-        });
         let mut root_store = futures_rustls::rustls::RootCertStore::empty();
-        root_store.extend(roots);
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
         let provider = futures_rustls::rustls::crypto::ring::default_provider();
         #[cfg(feature = "aws-lc-rs")]
